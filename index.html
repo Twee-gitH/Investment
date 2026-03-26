@@ -1,112 +1,72 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bagong Pilipinas Stock Market</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        .hidden-screen { display: none; }
-        @keyframes slideIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-        .animate-slide { animation: slideIn 0.4s ease-out; }
-    </style>
-</head>
-<body class="bg-slate-50 text-slate-900 font-sans pb-24">
+import streamlit as st
+import random
+import smtplib
+from email.message import EmailMessage
 
-    <div id="login-screen" class="fixed inset-0 z-[100] bg-white flex flex-col items-center justify-center p-8 text-center">
-        <div class="mb-8">
-            <div class="w-20 h-20 bg-red-600 rounded-full mx-auto mb-4 flex items-center justify-center text-white text-3xl font-bold shadow-xl border-4 border-blue-700">BP</div>
-            <h1 class="text-2xl font-black text-blue-900 leading-tight">WELCOME TO <br>BAGONG PILIPINAS<br>STOCK MARKET</h1>
-            <p class="text-slate-400 text-sm mt-2 font-medium">Authorized Investor Portal</p>
-        </div>
+# --- EMAIL CONFIGURATION (The Secret Step) ---
+# Replace these with your actual details later
+EMAIL_SENDER = "your-email@gmail.com" 
+EMAIL_PASSWORD = "your-app-password" 
+
+def send_otp(target_email, code):
+    msg = EmailMessage()
+    msg.set_content(f"Your Bagong Pilipinas verification code is: {code}")
+    msg['Subject'] = 'Verification Code'
+    msg['From'] = EMAIL_SENDER
+    msg['To'] = target_email
+
+    try:
+        server = smtplib.SMTP_SSL('smtp.gmail.com', 465)
+        server.login(EMAIL_SENDER, EMAIL_PASSWORD)
+        server.send_message(msg)
+        server.quit()
+        return True
+    except Exception as e:
+        st.error(f"Email error: {e}")
+        return False
+
+# --- APP UI ---
+st.set_page_config(page_title="Bagong Pilipinas Stock Market", page_icon="🇵🇭")
+
+if 'step' not in st.session_state:
+    st.session_state.step = "register"
+
+# STEP 1: REGISTRATION
+if st.session_state.step == "register":
+    st.title("🇵🇭 Register Account")
+    email = st.text_input("Enter your Email Address")
+    if st.button("SEND 6-DIGIT CODE"):
+        if "@" in email:
+            otp = str(random.randint(100000, 999999))
+            st.session_state.generated_otp = otp
+            st.session_state.user_email = email
+            
+            if send_otp(email, otp):
+                st.success(f"Code sent to {email}")
+                st.session_state.step = "verify"
+                st.rerun()
+        else:
+            st.error("Please enter a valid email.")
+
+# STEP 2: OTP VERIFICATION
+elif st.session_state.step == "verify":
+    st.title("Enter Code")
+    st.write(f"Check your email: **{st.session_state.user_email}**")
+    user_code = st.text_input("6-Digit Code", max_chars=6)
+    
+    if st.button("VERIFY & ENTER"):
+        if user_code == st.session_state.generated_otp:
+            st.success("Verified!")
+            st.session_state.step = "dashboard"
+            st.rerun()
+        else:
+            st.error("Invalid Code. Try again.")
+
+# STEP 3: THE ACTUAL APP
+elif st.session_state.step == "dashboard":
+    st.title("📈 Bagong Pilipinas Dashboard")
+    st.write(f"Welcome, {st.session_state.user_email}!")
+    if st.button("Log Out"):
+        st.session_state.step = "register"
+        st.rerun()
         
-        <form id="login-form" class="w-full max-w-sm space-y-4">
-            <input type="text" placeholder="Username" required class="w-full p-4 bg-slate-100 rounded-2xl border-none focus:ring-2 focus:ring-blue-600 outline-none font-semibold">
-            <input type="password" placeholder="Secure Password" required class="w-full p-4 bg-slate-100 rounded-2xl border-none focus:ring-2 focus:ring-blue-600 outline-none">
-            <button type="submit" class="w-full bg-blue-700 text-white font-bold py-4 rounded-2xl shadow-lg active:scale-95 transition-all uppercase tracking-widest text-sm">Enter Market</button>
-        </form>
-    </div>
-
-    <div id="dashboard" class="hidden-screen animate-slide">
-        <nav class="bg-white border-b px-6 py-4 sticky top-0 z-50 flex justify-between items-center">
-            <div class="flex items-center space-x-2">
-                <div class="w-8 h-8 bg-red-600 rounded-full flex items-center justify-center text-white text-[10px] font-bold">BP</div>
-                <h1 class="text-sm font-black text-blue-900">BAGONG PILIPINAS</h1>
-            </div>
-            <span id="user-display" class="text-[10px] font-bold text-blue-600 bg-blue-50 px-3 py-1 rounded-full uppercase">@investor</span>
-        </nav>
-
-        <main class="max-w-md mx-auto p-4 space-y-6">
-            <section class="bg-gradient-to-r from-blue-800 to-blue-600 rounded-3xl p-6 text-white shadow-xl">
-                <p class="text-blue-100 text-[10px] uppercase font-bold tracking-widest">Available for Withdrawal</p>
-                <h2 class="text-4xl font-black mt-1">$4,250.00</h2>
-                <div class="mt-4 flex items-center text-[10px] font-bold bg-white/10 w-fit px-2 py-1 rounded">
-                    🟢 MARKET ONLINE
-                </div>
-            </section>
-
-            <section class="space-y-4">
-                <h3 class="font-bold text-slate-800">Investment Tiers</h3>
-                <div onclick="calculate(100, 0.10)" class="bg-white p-5 rounded-3xl border border-slate-200 flex justify-between items-center active:scale-95 transition-all">
-                    <div><p class="text-2xl font-black text-slate-800">$100</p><p class="text-[10px] font-bold text-red-600 uppercase">10% ROI / 24 Hours</p></div>
-                    <span class="text-xs font-black text-blue-700">SELECT</span>
-                </div>
-                <div onclick="calculate(500, 0.20)" class="bg-white p-5 rounded-3xl border border-slate-200 flex justify-between items-center active:scale-95 transition-all">
-                    <div><p class="text-2xl font-black text-slate-800">$500</p><p class="text-[10px] font-bold text-red-600 uppercase">20% ROI / 24 Hours</p></div>
-                    <span class="text-xs font-black text-blue-700">SELECT</span>
-                </div>
-                <div onclick="calculate(1000, 0.30)" class="bg-blue-900 p-5 rounded-3xl flex justify-between items-center active:scale-95 shadow-lg">
-                    <div><p class="text-2xl font-black text-white">$1000</p><p class="text-[10px] font-bold text-yellow-400 uppercase">30% ROI / 24 Hours</p></div>
-                    <span class="text-xs font-black text-white bg-blue-700 px-3 py-1 rounded-lg">GOLD</span>
-                </div>
-            </section>
-
-            <div id="calc-display" class="hidden bg-slate-900 rounded-3xl p-6 text-white text-center animate-slide">
-                <p class="text-slate-400 text-[10px] font-bold uppercase mb-2">Payout in 24 Hours</p>
-                <h3 id="total-return" class="text-4xl font-black text-green-400 mb-4">$0.00</h3>
-                <button class="w-full bg-green-500 text-slate-900 py-4 rounded-2xl font-black uppercase text-xs tracking-widest">Confirm Stake</button>
-            </div>
-        </main>
-    </div>
-
-    <div id="withdraw-screen" class="hidden-screen animate-slide p-4 max-w-md mx-auto space-y-6">
-        <h2 class="text-2xl font-black text-blue-900 mt-4">WITHDRAW</h2>
-        <div class="bg-white p-6 rounded-3xl border border-slate-200">
-            <p class="text-slate-400 text-xs font-bold uppercase">Balance: <span class="text-slate-800">$4,250.00</span></p>
-            <div class="mt-6 space-y-4">
-                <input type="number" placeholder="Amount" class="w-full p-4 bg-slate-50 rounded-xl border border-slate-200 outline-none">
-                <input type="text" placeholder="Wallet Address" class="w-full p-4 bg-slate-50 rounded-xl border border-slate-200 outline-none">
-                <button class="w-full bg-red-600 text-white font-black py-4 rounded-2xl shadow-lg uppercase tracking-widest text-xs">Process Withdrawal</button>
-            </div>
-        </div>
-    </div>
-
-    <footer id="bottom-nav" class="hidden-screen fixed bottom-0 left-0 right-0 bg-white border-t p-4 flex justify-around">
-        <button onclick="showScreen('dashboard')" class="text-center"><p class="text-xl">📈</p><p class="text-[8px] font-bold uppercase mt-1">Invest</p></button>
-        <button onclick="showScreen('withdraw-screen')" class="text-center text-slate-400"><p class="text-xl">💸</p><p class="text-[8px] font-bold uppercase mt-1">Withdraw</p></button>
-    </footer>
-
-    <script>
-        function showScreen(id) {
-            document.getElementById('dashboard').classList.add('hidden-screen');
-            document.getElementById('withdraw-screen').classList.add('hidden-screen');
-            document.getElementById(id).classList.remove('hidden-screen');
-        }
-        document.getElementById('login-form').addEventListener('submit', function(e) {
-            e.preventDefault();
-            const user = e.target.querySelector('input[type="text"]').value;
-            document.getElementById('user-display').innerText = '@' + user;
-            document.getElementById('login-screen').classList.add('hidden-screen');
-            document.getElementById('dashboard').classList.remove('hidden-screen');
-            document.getElementById('bottom-nav').classList.remove('hidden-screen');
-        });
-        function calculate(amount, rate) {
-            const display = document.getElementById('calc-display');
-            document.getElementById('total-return').innerText = '$' + (amount + (amount * rate)).toFixed(2);
-            display.classList.remove('hidden');
-            window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
-        }
-    </script>
-</body>
-  </html>
-  
