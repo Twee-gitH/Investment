@@ -5,7 +5,11 @@ from datetime import datetime, timedelta
 import time
 import random
 
-# --- 1. CORE DATA ENGINE ---
+# --- 1. SESSION INITIALIZER (FIXES THE ERROR IN 8367.JPG) ---
+if 'user' not in st.session_state: st.session_state.user = None
+if 'page' not in st.session_state: st.session_state.page = "main"
+
+# --- 2. DATA ENGINE ---
 REGISTRY_FILE = "bpsm_registry.json"
 
 def load_registry():
@@ -22,7 +26,7 @@ def update_user(name, data):
     with open(REGISTRY_FILE, "w") as f:
         json.dump(reg, f, default=str)
 
-# --- 2. MOBILE-FIRST UI (INFINITY SCROLL) ---
+# --- 3. PREMIUM MOBILE UI ---
 st.set_page_config(page_title="BPSM Official", layout="wide")
 
 st.markdown("""
@@ -38,30 +42,33 @@ st.markdown("""
         padding: 40px 20px; text-align: center; border-bottom: 5px solid #0dcf70;
     }
     .banner h1 { font-family: 'Arial Black'; font-size: 2.2rem; color: white; margin: 0; line-height: 1.1; text-shadow: 2px 2px #000; }
-    .banner p { font-size: 0.95rem; color: #ffffff; margin-top: 15px; font-weight: 600; line-height: 1.5; text-align: center; }
+    .banner p { font-size: 0.95rem; color: #ffffff; margin-top: 15px; font-weight: 600; line-height: 1.5; }
 
-    /* USER DASHBOARD */
+    /* DASHBOARD */
     .user-box { text-align: center; padding: 30px 10px; background: #111217; border-bottom: 1px solid #2a2b30; }
     .balance-val { color: #0dcf70; font-size: 3.5rem; font-weight: 900; margin: 5px 0; }
-
-    /* NEWS SECTION [NEW!] */
+    
     .news-card {
         background: #1c1e24; border: 1px solid #0038a8; padding: 15px;
-        border-radius: 15px; margin: 15px; border-left: 5px solid #0038a8;
+        border-radius: 15px; margin: 15px; border-left: 5px solid #0038a8; font-size: 0.9rem;
     }
 
-    /* SECTION HEADERS */
     .section-header { 
         background: #1c1e24; padding: 12px 20px; margin-top: 25px; 
         border-left: 5px solid #0dcf70; font-weight: bold; font-size: 1.1rem;
         text-transform: uppercase; color: #0dcf70;
     }
 
-    /* DEPLOY BUTTON */
+    /* BUTTONS */
+    .stButton>button {
+        width: 100% !important; border-radius: 15px !important; height: 4.5rem !important;
+        background: #1c1e24 !important; color: #ffffff !important;
+        border: 1px solid #3a3d46 !important; font-weight: bold !important;
+    }
+    
     div[data-testid="stButton"] > button:contains("DEPLOY") {
         background: #0dcf70 !important; color: #0b0c0e !important;
-        height: 4.5rem !important; font-size: 1.3rem !important; font-weight: 900 !important; border: none !important;
-        border-radius: 15px !important;
+        font-size: 1.3rem !important; font-weight: 900 !important; border: none !important;
     }
 
     /* TICKER */
@@ -71,7 +78,6 @@ st.markdown("""
         border-top: 1px solid #2a2b30; font-weight: bold; z-index: 999;
     }
 
-    /* INPUTS */
     .stNumberInput input {
         color: #000 !important; background-color: #fff !important; 
         height: 3.8rem !important; font-size: 18px !important; font-weight: bold !important;
@@ -79,9 +85,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- 3. LOGIN & ADVERTISING ---
-if 'user' not in st.session_state: st.session_state.user = None
-
+# --- 4. ACCESS CONTROL ---
 if st.session_state.user is None:
     st.markdown("""<div class="banner">
         <h1>BAGONG PILIPINAS<br>STOCK MARKET</h1>
@@ -104,16 +108,16 @@ if st.session_state.user is None:
         if st.button("CREATE ACCOUNT"):
             if rn and len(rp) == 6:
                 update_user(rn, {"pin": rp, "wallet": 0.0, "inv": [], "tx": [], "commissions": 0.0})
-                st.success("Account Created! Sign in above.")
+                st.success("Account Created!")
 
-# --- 4. INVESTOR PORTAL (INFINITY SCROLL) ---
+# --- 5. INVESTOR PORTAL (INFINITY SCROLL) ---
 else:
     name = st.session_state.user
     reg = load_registry()
     data = reg[name]
     now = datetime.now()
 
-    # Auto-Payout
+    # Payout Process
     active_inv = []
     payout = 0
     for i in data.get('inv', []):
@@ -124,13 +128,11 @@ else:
         data['inv'] = active_inv
         update_user(name, data)
 
-    # 1. HEADER
+    # 1. HEADER & NEWS
     st.markdown(f"<div class='user-box'><p style='color:#8c8f99;'>AVAILABLE ASSETS</p><h1 class='balance-val'>₱{data['wallet']:,.2f}</h1><p style='color:#8c8f99;'>Account: {name}</p></div>", unsafe_allow_html=True)
+    st.markdown("<div class='news-card'><b>📢 MARKET UPDATE:</b> Fuel and Electronics liquidation successfully completed. Wholesale demand remains high. +10% Yield cycles are currently STABLE.</div>", unsafe_allow_html=True)
 
-    # 2. MARKET NEWS (NEW AUTHORITATIVE SECTION)
-    st.markdown("<div class='news-card'><b>📢 MARKET UPDATE:</b> Fuel and Electronics liquidation successfully completed at 08:00 AM. Wholesale demand remains high. +10% Yield cycles are currently STABLE.</div>", unsafe_allow_html=True)
-
-    # 3. QUICK ACTIONS
+    # 2. ACTIONS
     col_a, col_b = st.columns(2)
     if col_a.button("📥 DEPOSIT"): st.session_state.page = "dep"
     if col_b.button("📤 WITHDRAW"): st.session_state.page = "wd"
@@ -140,51 +142,36 @@ else:
             st.session_state.page = "main"
             st.rerun()
 
+    # 3. SCROLLABLE SECTIONS
     if st.session_state.page == "main":
-        # DEPLOYMENT CENTER
+        # DEPLOY
         st.markdown("<div class='section-header'>🚀 DEPLOYMENT CENTER</div>", unsafe_allow_html=True)
         st.info("Confirm your deployment to the 24H Commodity Floor. Join the latest wholesale cycle for an immediate 10% premium.")
-        inv_a = st.number_input("Capital Amount (PHP)", min_value=100.0, step=100.0)
+        inv_a = st.number_input("Capital PHP", min_value=100.0, step=100.0)
         if st.button("CONFIRM & DEPLOY CAPITAL"):
             if data['wallet'] >= inv_a:
                 data['wallet'] -= inv_a
                 data.setdefault('inv', []).append({"amt": inv_a, "prof": inv_a*0.1, "end": (now + timedelta(hours=24)).isoformat()})
                 update_user(name, data)
                 st.rerun()
-            else: st.error("Insufficient Assets for Liquidation Cycle.")
 
-        # ACTIVE 24H CYCLES
+        # ACTIVE
         st.markdown("<div class='section-header'>⏳ ACTIVE 24H CYCLES</div>", unsafe_allow_html=True)
-        if not active_inv: st.write("No active capital cycles.")
+        if not active_inv: st.write("No active cycles.")
         for t in active_inv:
             rem = datetime.fromisoformat(t['end']) - now
             st.markdown(f"""<div style='background:#1c1e24; padding:20px; border-radius:15px; border:1px solid #3a3d46; text-align:center; margin-bottom:10px;'>
-            <p style='color:#8c8f99; margin:0;'>Wholesale Trade: ₱{t['amt']:,}</p>
+            <p style='color:#8c8f99; margin:0;'>Active Trade: ₱{t['amt']:,}</p>
             <div style='color:#0dcf70; font-size:2rem; font-weight:bold; font-family:monospace;'>{str(rem).split(".")[0]}</div>
             </div>""", unsafe_allow_html=True)
 
-        # REFERRAL PROGRAM
-        st.markdown("<div class='section-header'>🤝 REFERRAL PROGRAM</div>", unsafe_allow_html=True)
-        st.write("Earn 5% commission on every capital deployment made by your invites.")
-        st.markdown(f"""<div style='background: #0b0c0e; border: 2px dashed #0dcf70; padding: 15px; border-radius: 15px; text-align: center; margin-top: 10px;'>
-            <p style='color:#8c8f99; font-size:0.8rem; margin:0;'>YOUR INVITE CODE</p>
-            <h2 style='color:#fff; margin:5px 0;'>BPSM-{name[:4]}</h2>
-            <p style='color:#0dcf70; font-weight:bold;'>Total Earned: ₱{data.get('commissions', 0.0):,.2f}</p>
-        </div>""", unsafe_allow_html=True)
-
-        # TRANSACTION LOGS
+        # LOGS
         st.markdown("<div class='section-header'>📜 TRANSACTION LOGS</div>", unsafe_allow_html=True)
-        if not data.get('tx'): st.write("No history.")
         for t in reversed(data.get('tx', [])):
             st.write(f"**{t['date']}** | {t['type']} | ₱{t['amt']:,} | `{t['status']}`")
 
-        # SUPPORT SECTION
-        st.markdown("<div class='section-header'>📞 SUPPORT</div>", unsafe_allow_html=True)
-        if st.button("💬 MESSAGE ADMIN ON TELEGRAM"):
-            st.info("Directing to @BPSM_Admin...")
-
-    # --- 5. LIVE TICKER ---
-    ticker_text = f"🔥 FLASH: Market liquidation successful! All 24H cycles closed with +10% gains. Next cycle open now! &nbsp;&nbsp;&nbsp; ✅ PAYOUT: {random.choice(['Juan D.', 'Maria S.', 'Rico P.'])} received ₱{random.randint(1000, 5000):,}!"
+    # --- 4. TICKER ---
+    ticker_text = f"🔥 FLASH: Market liquidation successful! All 24H cycles closed with +10% gains. &nbsp;&nbsp;&nbsp; ✅ PAYOUT: User {random.randint(100,999)} received ₱{random.randint(1000, 5000):,}!"
     st.markdown(f"""<div class="ticker-wrap"><marquee>{ticker_text}</marquee></div>""", unsafe_allow_html=True)
 
     st.write("<br><br><br>", unsafe_allow_html=True)
