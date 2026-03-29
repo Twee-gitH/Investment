@@ -5,7 +5,7 @@ import os
 from datetime import datetime, timedelta
 import time
 
-# --- 1. DATA & REGISTRY ---
+# --- 1. DATA PERSISTENCE ---
 REGISTRY_FILE = "bpsm_registry.json"
 
 def load_registry():
@@ -30,142 +30,175 @@ def update_user(name, data):
     with open(REGISTRY_FILE, "w") as f:
         json.dump(reg, f, default=str)
 
-# --- 2. THEMED DESIGN (NEON DARK) ---
-st.set_page_config(page_title="BPSM Official", page_icon="🇵🇭", layout="centered")
+# --- 2. MOBILE-FIT DESIGN ---
+st.set_page_config(page_title="BPSM Official", layout="centered")
 
 st.markdown("""
+    <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    </head>
     <style>
+    .block-container { padding: 1rem !important; max-width: 100% !important; }
     .stApp { background-color: #0b0c0e; color: white; }
     
     /* Headers */
-    .brand { text-align: center; color: #ffffff; font-family: 'Arial Black'; font-size: 2.2rem; margin-bottom: 0; }
-    .sub-brand { text-align: center; color: #ce1126; font-size: 0.8rem; letter-spacing: 3px; margin-top: -10px; margin-bottom: 20px; }
+    .brand { text-align: center; color: #ffffff; font-family: 'Arial Black'; font-size: 1.8rem; margin-bottom: 0; }
+    .sub-brand { text-align: center; color: #ce1126; font-size: 0.7rem; letter-spacing: 2px; margin-top: -5px; margin-bottom: 15px; }
 
-    /* Input Fix: BLACK TEXT ON WHITE BOX */
+    /* Inputs: BLACK TEXT, NO ZOOM */
     .stTextInput input, .stNumberInput input {
         color: #000000 !important; 
         -webkit-text-fill-color: #000000 !important;
         background-color: #ffffff !important;
-        border-radius: 12px !important;
-        height: 4.2rem !important;
-        font-size: 1.2rem !important;
+        border-radius: 10px !important;
+        height: 3.5rem !important;
+        font-size: 16px !important;
         font-weight: bold !important;
     }
 
-    /* Action Icons Row */
-    .action-row { display: flex; justify-content: space-around; margin: 20px 0; }
+    /* Action Row Icons */
+    .action-row { display: flex; justify-content: space-around; margin: 15px 0; }
     .icon-circle {
-        width: 55px; height: 55px; background-color: #17181c;
+        width: 50px; height: 50px; background-color: #17181c;
         border: 1px solid #2a2b30; border-radius: 50%;
         display: flex; align-items: center; justify-content: center;
-        margin: 0 auto; font-size: 1.4rem;
+        margin: 0 auto; font-size: 1.2rem;
     }
-    .action-text { font-size: 0.75rem; color: #8c8f99; text-align: center; margin-top: 8px; font-weight: bold; }
+    .action-text { font-size: 0.7rem; color: #8c8f99; text-align: center; margin-top: 5px; font-weight: bold; }
 
     /* Neon Green Button */
     .stButton>button {
-        border-radius: 12px; height: 4.5rem; font-size: 1.2rem; font-weight: 900;
+        width: 100% !important; border-radius: 10px; height: 3.8rem; font-size: 1.1rem; font-weight: 900;
         background: #0dcf70 !important; color: #0b0c0e !important;
-        border: none !important; box-shadow: 0 5px 20px rgba(13, 207, 112, 0.4);
+        border: none !important; box-shadow: 0 4px 12px rgba(13, 207, 112, 0.3);
     }
 
-    /* Labels */
-    .id-label { font-size: 0.9rem; color: #8c8f99; font-weight: 900; margin-bottom: 5px; display: block; }
-    
-    /* Market Box */
-    .market-box {
-        background-color: #17181c; padding: 15px; border-radius: 12px;
+    /* Profit/Timer Cards */
+    .trade-card {
+        background-color: #17181c; padding: 12px; border-radius: 10px;
         border: 1px solid #2a2b30; margin-bottom: 10px;
     }
-    .change { color: #0dcf70; float: right; font-weight: bold; }
+    .timer-text { color: #0dcf70; font-family: monospace; font-weight: bold; font-size: 1.1rem; }
     </style>
     """, unsafe_allow_html=True)
 
 # --- 3. AUTHENTICATION ---
 if 'user' not in st.session_state: st.session_state.user = None
-if 'tab_index' not in st.session_state: st.session_state.tab_index = 0
 
 if st.session_state.user is None:
-    st.markdown("<h1 class='brand'>BPSM</h1>", unsafe_allow_html=True)
-    st.markdown("<p class='sub-brand'>BAGONG PILIPINAS STOCK MARKET</p>", unsafe_allow_html=True)
-    
-    t1, t2 = st.tabs(["🔑 SIGN IN", "📝 REGISTER"])
+    st.markdown("<h1 class='brand'>BPSM</h1><p class='sub-brand'>BAGONG PILIPINAS STOCK MARKET</p>", unsafe_allow_html=True)
+    t1, t2 = st.tabs(["🔑 LOGIN", "📝 REGISTER"])
     with t1:
-        st.markdown("<p class='id-label'>INVESTOR FULL NAME</p>", unsafe_allow_html=True)
-        l_name = st.text_input("l_n", label_visibility="collapsed").upper()
-        st.markdown("<p class='id-label'>6-DIGIT SECURITY PIN</p>", unsafe_allow_html=True)
-        l_pin = st.text_input("l_p", type="password", max_chars=6, label_visibility="collapsed")
-        if st.button("VERIFY & ENTER"):
+        l_name = st.text_input("NAME", key="l_n").upper()
+        l_pin = st.text_input("PIN", type="password", max_chars=6, key="l_p")
+        if st.button("SIGN IN"):
             reg = load_registry()
             if l_name in reg and reg[l_name]['pin'] == l_pin:
                 st.session_state.user = l_name
                 st.rerun()
-            else: st.error("Invalid Credentials.")
+            else: st.error("Incorrect Details")
     with t2:
-        r_name = st.text_input("FULL NAME").upper()
-        r_pin = st.text_input("PIN (6 DIGITS)", type="password", max_chars=6)
-        if st.button("CREATE I.D."):
+        r_name = st.text_input("FULL NAME", key="r_n").upper()
+        r_pin = st.text_input("SET 6-DIGIT PIN", type="password", max_chars=6, key="r_p")
+        if st.button("CREATE ACCOUNT"):
             if r_name and len(r_pin) == 6:
-                if save_user(r_name, r_pin): st.success("Created! Please Sign In.")
-                else: st.error("Name already taken.")
+                if save_user(r_name, r_pin): st.success("Account Ready!")
+                else: st.error("Name taken.")
 
 # --- 4. DASHBOARD ---
 else:
     name = st.session_state.user
     reg = load_registry()
     data = reg[name]
+    now = datetime.now()
 
-    st.markdown(f"<h3 style='text-align:center;'>Investor: {name}</h3>", unsafe_allow_html=True)
+    # Calculate Matured Profits
+    matured_total = 0
+    active_trades = []
+    for i in data['inv']:
+        if now >= datetime.fromisoformat(i['end']):
+            matured_total += (i['amt'] + i['prof'])
+        else:
+            active_trades.append(i)
+    
+    # Update wallet with matured funds and clear them from active list
+    if matured_total > 0:
+        data['wallet'] += matured_total
+        data['inv'] = active_trades
+        update_user(name, data)
 
-    # Market Overview
-    st.markdown("""
-        <div class="market-box">
-            <span style="color:#8c8f99">BTC/PHP</span> <span class="change">+1.25%</span><br>
-            <span style="font-size:1.2rem; font-weight:bold;">₱3,845,210.00</span>
-        </div>
-    """, unsafe_allow_html=True)
+    st.markdown(f"<h2 style='text-align:center;'>Welcome, {name}</h2>", unsafe_allow_html=True)
+    st.metric("AVAILABLE BALANCE", f"₱{data['wallet']:,.2f}")
 
-    # Riscoin Action Row
+    # Action Icons
     st.markdown("""
         <div class="action-row">
-            <div class="action-item"><div class="icon-circle">📤</div><div class="action-text">Withdraw</div></div>
             <div class="action-item"><div class="icon-circle">📥</div><div class="action-text">Deposit</div></div>
-            <div class="action-item"><div class="icon-circle">🔄</div><div class="action-text">Convert</div></div>
+            <div class="action-item"><div class="icon-circle">📤</div><div class="action-text">Withdraw</div></div>
+            <div class="action-item"><div class="icon-circle">📊</div><div class="action-text">Market</div></div>
             <div class="action-item"><div class="icon-circle">⋯</div><div class="action-text">More</div></div>
         </div>
     """, unsafe_allow_html=True)
 
-    # Balance Logic
-    now = datetime.now()
-    total_matured = sum((i['amt'] + i['prof']) for i in data['inv'] if now >= datetime.fromisoformat(i['end']))
-    liquid = data['wallet'] + total_matured
+    tab1, tab2, tab3 = st.tabs(["🚀 INVEST", "💳 WALLET", "📋 ACTIVE"])
 
-    st.metric("AVAILABLE BALANCE", f"₱{liquid:,.2f}")
-
-    tab_trade, tab_wallet = st.tabs(["📊 TRADE", "💳 WALLET"])
-    
-    with tab_trade:
-        amt = st.number_input("Trade Amount", min_value=500.0, step=500.0)
-        if st.button("EXECUTE BUY ORDER"):
-            if liquid >= amt:
-                new_inv = {"amt": amt, "prof": amt*0.2, "end": (now + timedelta(hours=24)).isoformat()}
-                data['inv'].append(new_inv)
-                if data['wallet'] >= amt: data['wallet'] -= amt
+    with tab1:
+        st.write("#### 10% Profit / 24 Hours")
+        amt = st.number_input("Enter Amount (PHP)", min_value=100.0, step=100.0)
+        if st.button("START INVESTMENT"):
+            if data['wallet'] >= amt:
+                data['wallet'] -= amt
+                end_time = (now + timedelta(hours=24)).isoformat()
+                data['inv'].append({"amt": amt, "prof": amt * 0.10, "start": now.isoformat(), "end": end_time})
                 update_user(name, data)
-                st.success("Trade Active!")
+                st.success(f"Investment of ₱{amt} started!")
                 st.rerun()
-            else: st.error("Low Balance.")
+            else: st.error("Insufficient Funds.")
 
-    with tab_wallet:
-        st.write("#### GCASH DEPOSIT: 0912-345-6789")
-        d_amt = st.number_input("Deposit Amount", min_value=100.0)
-        ref = st.text_input("Ref Number")
-        if st.button("REPORT DEPOSIT"):
-            data['tx'].append({"type": "DEP", "amt": d_amt, "ref": ref, "status": "PENDING"})
-            update_user(name, data)
-            st.info("Sent to Admin for Approval.")
+    with tab2:
+        mode = st.radio("Select Action", ["Deposit", "Withdraw"], horizontal=True)
+        if mode == "Deposit":
+            st.info("GCash: 0912-345-6789")
+            d_amt = st.number_input("Amount Sent", min_value=100.0)
+            ref = st.text_input("Ref Number")
+            if st.button("SUBMIT PROOF"):
+                data['tx'].append({"type": "DEP", "amt": d_amt, "ref": ref, "status": "PENDING"})
+                update_user(name, data)
+                st.success("Reported to Admin.")
+        else:
+            w_amt = st.number_input("Withdraw Amount", min_value=100.0)
+            if st.button("REQUEST CASHOUT"):
+                if data['wallet'] >= w_amt:
+                    data['wallet'] -= w_amt
+                    data['tx'].append({"type": "WD", "amt": w_amt, "status": "PENDING"})
+                    update_user(name, data)
+                    st.warning("Request Sent.")
+                else: st.error("Inadequate Balance.")
+
+    with tab3:
+        if not active_trades:
+            st.write("No active investments.")
+        for trade in active_trades:
+            end = datetime.fromisoformat(trade['end'])
+            rem = end - now
+            # Format time remaining
+            hours, remainder = divmod(rem.seconds, 3600)
+            minutes, seconds = divmod(remainder, 60)
+            time_str = f"{hours:02d}:{minutes:02d}:{seconds:02d}"
+            
+            st.markdown(f"""
+                <div class="trade-card">
+                    <b>Principal:</b> ₱{trade['amt']:,.2f} <br>
+                    <b>Profit (10%):</b> <span style="color:#0dcf70;">+₱{trade['prof']:,.2f}</span> <br>
+                    <b>Releasing in:</b> <span class="timer-text">{time_str}</span>
+                </div>
+            """, unsafe_allow_html=True)
 
     if st.sidebar.button("LOGOUT"):
         st.session_state.user = None
         st.rerun()
-        
+    
+    # Auto-refresh timer every 10 seconds
+    time.sleep(10)
+    st.rerun()
+    
