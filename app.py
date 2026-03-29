@@ -5,6 +5,14 @@ from datetime import datetime, timedelta
 import time
 import random
 
+def get_status_msg():
+    if os.path.exists("status.txt"):
+        with open("status.txt", "r") as f: return f.read()
+    return "Market cycles are currently STABLE."
+
+def set_status_msg(msg):
+    with open("status.txt", "w") as f: f.write(msg)
+        
 # --- 1. SESSION INITIALIZER (FIXES THE ERROR IN 8367.JPG) ---
 if 'user' not in st.session_state: st.session_state.user = None
 if 'page' not in st.session_state: st.session_state.page = "main"
@@ -202,7 +210,7 @@ if st.session_state.get("is_boss"):
     if st.session_state.show_adm:
         st.markdown("### 👑 BPSM MASTER CONTROL")
         
-        # 1. SEARCH & ADJUST
+        # 1. ADJUST BALANCE
         st.markdown("<div class='section-header'>🛠️ ADJUST BALANCE</div>", unsafe_allow_html=True)
         search_q = st.text_input("Search Investor Name...").upper()
         f_names = [n for n in all_users.keys() if search_q in n]
@@ -215,11 +223,14 @@ if st.session_state.get("is_boss"):
             with open(REGISTRY_FILE, "w") as f: json.dump(all_users, f, default=str)
             st.success("Balance Updated!"); st.rerun()
 
-        # 2. BROADCAST
+        # 2. MARKET UPDATE (Fixed NameError)
         st.markdown("<div class='section-header'>📢 MARKET UPDATE</div>", unsafe_allow_html=True)
-        msg = st.text_area("New Message:", value=get_status_msg())
+        current_msg = get_status_msg()
+        new_msg = st.text_area("New Message:", value=current_msg)
         if st.button("PUSH BROADCAST"):
-            set_status_msg(msg); st.rerun()
+            set_status_msg(new_msg)
+            st.success("Message Live!")
+            st.rerun()
 
     if st.button("🔴 LOGOUT BOSS"):
         st.session_state.is_boss = False
