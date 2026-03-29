@@ -22,7 +22,7 @@ def update_user(name, data):
     with open(REGISTRY_FILE, "w") as f:
         json.dump(reg, f, default=str)
 
-# --- 2. MOBILE-FIRST UI (ONE-PAGE SCROLL) ---
+# --- 2. MOBILE-FIRST UI (INFINITY SCROLL) ---
 st.set_page_config(page_title="BPSM Official", layout="wide")
 
 st.markdown("""
@@ -32,43 +32,37 @@ st.markdown("""
     .stApp { background-color: #0b0c0e; color: white; }
     .block-container { padding: 0 !important; max-width: 100% !important; }
 
-    /* AD BANNER */
+    /* LOGIN BANNER */
     .banner {
         background: linear-gradient(135deg, #0038a8 0%, #ce1126 100%);
         padding: 40px 20px; text-align: center; border-bottom: 5px solid #0dcf70;
     }
     .banner h1 { font-family: 'Arial Black'; font-size: 2.2rem; color: white; margin: 0; line-height: 1.1; text-shadow: 2px 2px #000; }
-    
-    /* USER BOX */
+    .banner p { font-size: 0.95rem; color: #ffffff; margin-top: 15px; font-weight: 600; line-height: 1.5; text-align: center; }
+
+    /* USER DASHBOARD */
     .user-box { text-align: center; padding: 30px 10px; background: #111217; border-bottom: 1px solid #2a2b30; }
     .balance-val { color: #0dcf70; font-size: 3.5rem; font-weight: 900; margin: 5px 0; }
+
+    /* NEWS SECTION [NEW!] */
+    .news-card {
+        background: #1c1e24; border: 1px solid #0038a8; padding: 15px;
+        border-radius: 15px; margin: 15px; border-left: 5px solid #0038a8;
+    }
 
     /* SECTION HEADERS */
     .section-header { 
         background: #1c1e24; padding: 12px 20px; margin-top: 25px; 
-        border-left: 5px solid #0dcf70; font-weight: bold; font-size: 1.2rem;
-        text-transform: uppercase; letter-spacing: 1px;
+        border-left: 5px solid #0dcf70; font-weight: bold; font-size: 1.1rem;
+        text-transform: uppercase; color: #0dcf70;
     }
 
-    /* BUTTONS */
-    .stButton>button {
-        width: 100% !important; border-radius: 15px !important; height: 4.5rem !important;
-        background: #1c1e24 !important; color: #ffffff !important;
-        border: 1px solid #3a3d46 !important; font-weight: bold !important; font-size: 1.1rem !important;
-    }
-    
     /* DEPLOY BUTTON */
     div[data-testid="stButton"] > button:contains("DEPLOY") {
         background: #0dcf70 !important; color: #0b0c0e !important;
-        font-size: 1.4rem !important; font-weight: 900 !important; border: none !important;
+        height: 4.5rem !important; font-size: 1.3rem !important; font-weight: 900 !important; border: none !important;
+        border-radius: 15px !important;
     }
-
-    /* TIMER CARD */
-    .timer-card {
-        background: #1c1e24; padding: 25px; border-radius: 20px;
-        border: 2px solid #2a2b30; margin: 15px; text-align: center;
-    }
-    .timer-val { color: #0dcf70; font-family: monospace; font-size: 2.5rem; font-weight: bold; }
 
     /* TICKER */
     .ticker-wrap {
@@ -78,48 +72,48 @@ st.markdown("""
     }
 
     /* INPUTS */
-    .stNumberInput input, .stTextInput input {
-        color: #000000 !important; -webkit-text-fill-color: #000000 !important;
-        background-color: #ffffff !important; border-radius: 12px !important; 
-        height: 4rem !important; font-size: 18px !important; font-weight: bold !important;
+    .stNumberInput input {
+        color: #000 !important; background-color: #fff !important; 
+        height: 3.8rem !important; font-size: 18px !important; font-weight: bold !important;
     }
     </style>
     """, unsafe_allow_html=True)
 
-# --- 3. LOGIN & ADS ---
+# --- 3. LOGIN & ADVERTISING ---
 if 'user' not in st.session_state: st.session_state.user = None
-if 'page' not in st.session_state: st.session_state.page = "main"
 
 if st.session_state.user is None:
-    st.markdown("""<div class="banner"><h1>BAGONG PILIPINAS<br>STOCK MARKET</h1>
-    <p>Wholesale Liquidity Protocol: We move high-demand goods. You provide the capital. 10% daily ROI guaranteed.</p></div>""", unsafe_allow_html=True)
+    st.markdown("""<div class="banner">
+        <h1>BAGONG PILIPINAS<br>STOCK MARKET</h1>
+        <p>By pooling capital, we acquire essential goods at wholesale prices and liquidate them to retail chains within 18 hours. You provide the liquidity; we provide the 10% daily ROI.<br><br>
+        "Real Assets, Real Turnover: Your investment is backed by high-demand physical commodities from electronics to energy, ensuring a 24-hour profit cycle."</p>
+    </div>""", unsafe_allow_html=True)
     
     t1, t2 = st.tabs(["🔑 SIGN-IN", "📝 REGISTER"])
     with t1:
-        ln = st.text_input("NAME", key="l_name").upper()
-        lp = st.text_input("PIN", type="password", max_chars=6, key="l_pin")
+        ln = st.text_input("INVESTOR NAME").upper()
+        lp = st.text_input("SECURE PIN", type="password", max_chars=6)
         if st.button("VERIFY & ACCESS"):
             reg = load_registry()
             if ln in reg and reg[ln]['pin'] == lp:
                 st.session_state.user = ln
                 st.rerun()
-            else: st.error("Access Denied.")
     with t2:
-        rn = st.text_input("FULL NAME", key="r_name").upper()
-        rp = st.text_input("SET PIN", type="password", max_chars=6, key="r_pin")
+        rn = st.text_input("FULL LEGAL NAME").upper()
+        rp = st.text_input("CREATE 6-DIGIT PIN", type="password", max_chars=6)
         if st.button("CREATE ACCOUNT"):
             if rn and len(rp) == 6:
-                update_user(rn, {"pin": rp, "wallet": 0.0, "inv": [], "tx": []})
+                update_user(rn, {"pin": rp, "wallet": 0.0, "inv": [], "tx": [], "commissions": 0.0})
                 st.success("Account Created! Sign in above.")
 
-# --- 4. INVESTOR PORTAL (SCROLLABLE) ---
+# --- 4. INVESTOR PORTAL (INFINITY SCROLL) ---
 else:
     name = st.session_state.user
     reg = load_registry()
     data = reg[name]
     now = datetime.now()
 
-    # Auto-Payout Logic
+    # Auto-Payout
     active_inv = []
     payout = 0
     for i in data.get('inv', []):
@@ -131,9 +125,12 @@ else:
         update_user(name, data)
 
     # 1. HEADER
-    st.markdown(f"<div class='user-box'><p style='color:#8c8f99; letter-spacing:2px;'>TOTAL ASSETS</p><h1 class='balance-val'>₱{data['wallet']:,.2f}</h1><p style='color:#8c8f99;'>{name}</p></div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='user-box'><p style='color:#8c8f99;'>AVAILABLE ASSETS</p><h1 class='balance-val'>₱{data['wallet']:,.2f}</h1><p style='color:#8c8f99;'>Account: {name}</p></div>", unsafe_allow_html=True)
 
-    # 2. QUICK ACTIONS
+    # 2. MARKET NEWS (NEW AUTHORITATIVE SECTION)
+    st.markdown("<div class='news-card'><b>📢 MARKET UPDATE:</b> Fuel and Electronics liquidation successfully completed at 08:00 AM. Wholesale demand remains high. +10% Yield cycles are currently STABLE.</div>", unsafe_allow_html=True)
+
+    # 3. QUICK ACTIONS
     col_a, col_b = st.columns(2)
     if col_a.button("📥 DEPOSIT"): st.session_state.page = "dep"
     if col_b.button("📤 WITHDRAW"): st.session_state.page = "wd"
@@ -143,72 +140,54 @@ else:
             st.session_state.page = "main"
             st.rerun()
 
-    if st.session_state.page == "dep":
-        st.info("GCash Account: 0912-345-6789")
-        d_amt = st.number_input("Amount Sent", min_value=100.0)
-        ref = st.text_input("Reference #")
-        if st.button("SUBMIT DEPOSIT REPORT"):
-            data.setdefault('tx', []).append({"date": now.strftime("%m/%d %H:%M"), "type": "DEP", "amt": d_amt, "status": "PENDING"})
-            update_user(name, data)
-            st.success("Sent for verification.")
-            st.session_state.page = "main"
-            st.rerun()
-
-    elif st.session_state.page == "wd":
-        w_amt = st.number_input("Amount to Cash-out", min_value=100.0)
-        if st.button("REQUEST CASHOUT"):
-            if data['wallet'] >= w_amt:
-                data['wallet'] -= w_amt
-                data.setdefault('tx', []).append({"date": now.strftime("%m/%d %H:%M"), "type": "WD", "amt": w_amt, "status": "PENDING"})
-                update_user(name, data)
-                st.warning("Payout processing...")
-                st.session_state.page = "main"
-                st.rerun()
-            else: st.error("Insufficient Funds.")
-
-    # 3. THE INFINITY SCROLL (DEPLOY -> ACTIVE -> LOGS -> CONTACT)
-    else:
-        # DEPLOY SECTION
-        st.markdown("<div class='section-header'>🚀 DEPLOY CAPITAL</div>", unsafe_allow_html=True)
-        st.write("Current Black Market Commodity Cycle (10% Profit)")
-        inv_a = st.number_input("Capital PHP", min_value=100.0, step=100.0, key="main_inv")
-        if st.button("CONFIRM DEPLOYMENT"):
+    if st.session_state.page == "main":
+        # DEPLOYMENT CENTER
+        st.markdown("<div class='section-header'>🚀 DEPLOYMENT CENTER</div>", unsafe_allow_html=True)
+        st.info("Confirm your deployment to the 24H Commodity Floor. Join the latest wholesale cycle for an immediate 10% premium.")
+        inv_a = st.number_input("Capital Amount (PHP)", min_value=100.0, step=100.0)
+        if st.button("CONFIRM & DEPLOY CAPITAL"):
             if data['wallet'] >= inv_a:
                 data['wallet'] -= inv_a
                 data.setdefault('inv', []).append({"amt": inv_a, "prof": inv_a*0.1, "end": (now + timedelta(hours=24)).isoformat()})
                 update_user(name, data)
                 st.rerun()
-            else: st.error("Low Balance.")
+            else: st.error("Insufficient Assets for Liquidation Cycle.")
 
-        # ACTIVE SECTION
-        st.markdown("<div class='section-header'>⏳ ACTIVE 24H TIMERS</div>", unsafe_allow_html=True)
-        if not active_inv: 
-            st.write("No active capital cycles.")
-        else:
-            for t in active_inv:
-                rem = datetime.fromisoformat(t['end']) - now
-                st.markdown(f"""<div class="timer-card"><p style="color:#8c8f99; margin:0;">CAPITAL: ₱{t['amt']:,} (+10%)</p>
-                <p style="margin:5px 0;">MATURING IN:</p><div class="timer-val">{str(rem).split(".")[0]}</div></div>""", unsafe_allow_html=True)
+        # ACTIVE 24H CYCLES
+        st.markdown("<div class='section-header'>⏳ ACTIVE 24H CYCLES</div>", unsafe_allow_html=True)
+        if not active_inv: st.write("No active capital cycles.")
+        for t in active_inv:
+            rem = datetime.fromisoformat(t['end']) - now
+            st.markdown(f"""<div style='background:#1c1e24; padding:20px; border-radius:15px; border:1px solid #3a3d46; text-align:center; margin-bottom:10px;'>
+            <p style='color:#8c8f99; margin:0;'>Wholesale Trade: ₱{t['amt']:,}</p>
+            <div style='color:#0dcf70; font-size:2rem; font-weight:bold; font-family:monospace;'>{str(rem).split(".")[0]}</div>
+            </div>""", unsafe_allow_html=True)
 
-        # LOGS SECTION
-        st.markdown("<div class='section-header'>📜 TRANSACTION HISTORY</div>", unsafe_allow_html=True)
-        if not data.get('tx'): 
-            st.write("No transaction history yet.")
-        else:
-            for t in reversed(data.get('tx', [])):
-                st.write(f"**{t['date']}** | {t['type']} | ₱{t['amt']:,} | `{t['status']}`")
+        # REFERRAL PROGRAM
+        st.markdown("<div class='section-header'>🤝 REFERRAL PROGRAM</div>", unsafe_allow_html=True)
+        st.write("Earn 5% commission on every capital deployment made by your invites.")
+        st.markdown(f"""<div style='background: #0b0c0e; border: 2px dashed #0dcf70; padding: 15px; border-radius: 15px; text-align: center; margin-top: 10px;'>
+            <p style='color:#8c8f99; font-size:0.8rem; margin:0;'>YOUR INVITE CODE</p>
+            <h2 style='color:#fff; margin:5px 0;'>BPSM-{name[:4]}</h2>
+            <p style='color:#0dcf70; font-weight:bold;'>Total Earned: ₱{data.get('commissions', 0.0):,.2f}</p>
+        </div>""", unsafe_allow_html=True)
 
-        # CONTACT SECTION (NEW!)
+        # TRANSACTION LOGS
+        st.markdown("<div class='section-header'>📜 TRANSACTION LOGS</div>", unsafe_allow_html=True)
+        if not data.get('tx'): st.write("No history.")
+        for t in reversed(data.get('tx', [])):
+            st.write(f"**{t['date']}** | {t['type']} | ₱{t['amt']:,} | `{t['status']}`")
+
+        # SUPPORT SECTION
         st.markdown("<div class='section-header'>📞 SUPPORT</div>", unsafe_allow_html=True)
-        st.write("Need help with a deposit or withdrawal?")
-        if st.button("💬 CONTACT ADMIN (TELEGRAM)"):
-            st.write("Redirecting to Support...") # In a real app, use st.markdown with a link
+        if st.button("💬 MESSAGE ADMIN ON TELEGRAM"):
+            st.info("Directing to @BPSM_Admin...")
 
     # --- 5. LIVE TICKER ---
-    payout_msg = f"🔥 LIVE PAYOUT: {random.choice(['Juan D.', 'Maria S.', 'Rico P.', 'Liza M.', 'Kiko V.'])} just received ₱{random.randint(500, 5000):,} profit!"
-    st.markdown(f"""<div class="ticker-wrap"><marquee>{payout_msg} &nbsp;&nbsp;&nbsp; ✅ WITHDRAWAL: User {random.randint(100, 999)} approved!</marquee></div>""", unsafe_allow_html=True)
+    ticker_text = f"🔥 FLASH: Market liquidation successful! All 24H cycles closed with +10% gains. Next cycle open now! &nbsp;&nbsp;&nbsp; ✅ PAYOUT: {random.choice(['Juan D.', 'Maria S.', 'Rico P.'])} received ₱{random.randint(1000, 5000):,}!"
+    st.markdown(f"""<div class="ticker-wrap"><marquee>{ticker_text}</marquee></div>""", unsafe_allow_html=True)
 
-    st.write("<br><br><br><br>", unsafe_allow_html=True)
+    st.write("<br><br><br>", unsafe_allow_html=True)
     if st.sidebar.button("LOGOUT"):
         st.session_state.user = None
         st.rerun()
