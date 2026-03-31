@@ -35,22 +35,24 @@ def update_user(name, data):
     shutil.copy(REGISTRY_FILE, BACKUP_FILE)
 
 # --- 3. UI STYLING ---
+# --- 3. UI STYLING ---
 st.set_page_config(page_title="BPSM Official", layout="wide")
 st.markdown("""
     <style>
-    [data-testid="stSidebar"] { display: none; }
-    header { visibility: hidden; }
-    .stApp { background-color: #0b0c0e; color: white; }
-    .block-container { padding: 0 !important; max-width: 100% !important; }
-    .user-box { text-align: center; padding: 30px 10px; background: #111217; border-bottom: 1px solid #2a2b30; }
-    .balance-val { color: #0dcf70; font-size: 3.5rem; font-weight: 900; margin: 5px 0; }
-    .section-header { background: #1c1e24; padding: 12px 20px; margin-top: 25px; border-left: 5px solid #0dcf70; font-weight: bold; text-transform: uppercase; color: #0dcf70; }
-    .roi-text { color: #0dcf70; font-weight: bold; font-size: 1.1rem; }
-    .meta-text { color: #8c8f99; font-size: 0.85rem; margin-bottom: 2px; }
-    .timer-alert { color: #ff4b4b; font-weight: bold; font-size: 1.2rem; text-align: center; }
-    .stButton>button { border-radius: 12px !important; height: 3.5rem !important; font-weight: bold !important; width: 100%; }
+    /* ... your existing CSS ... */
+    
+    /* THIS FORCES ALL TEXT INPUTS TO LOOK LIKE CAPS LOCK IS ON */
+    input {
+        text-transform: uppercase;
+    }
+    
+    /* Optional: If you want placeholders to stay normal but typing to be Caps */
+    input::placeholder {
+        text-transform: none;
+    }
     </style>
     """, unsafe_allow_html=True)
+
 
 # --- 4. ACCESS CONTROL (AUTOMATED CAPSLOCK & DOUBLE PIN) ---
 if st.session_state.user is None and not st.session_state.is_boss:
