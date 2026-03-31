@@ -52,7 +52,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- 4. ACCESS CONTROL (DOUBLE PIN & ALL CAPS) ---
+# --- 4. ACCESS CONTROL (AUTOMATED CAPSLOCK & DOUBLE PIN) ---
 if st.session_state.user is None and not st.session_state.is_boss:
     st.markdown("<div style='background: linear-gradient(135deg, #0038a8 0%, #ce1126 100%); padding: 40px 20px; text-align: center;'><h1>BAGONG PILIPINAS<br>STOCK MARKET</h1></div>", unsafe_allow_html=True)
     t1, t2 = st.tabs(["🔑 SIGN-IN", "📝 REGISTER"])
@@ -69,6 +69,8 @@ if st.session_state.user is None and not st.session_state.is_boss:
             
     with t2:
         st.warning("⚠️ **IMPORTANT:** PLEASE INPUT ONLY YOUR LEGAL FIRST NAME AND LAST NAME.")
+        
+        # .upper() here ensures it shows as Caps as they type/submit
         rn = st.text_input("FULL LEGAL NAME (LEGAL FIRST NAME & LAST NAME ONLY)", key="reg_name").upper()
         
         rp1 = st.text_input("CREATE 6-DIGIT PIN", type="password", max_chars=6, key="reg_pin1")
@@ -78,7 +80,10 @@ if st.session_state.user is None and not st.session_state.is_boss:
         
         if st.button("CREATE ACCOUNT"):
             reg = load_registry()
-            name_parts = rn.strip().split()
+            
+            # Clean and Force Caps one last time
+            final_name = rn.strip().upper()
+            name_parts = final_name.split()
             
             if len(name_parts) < 2:
                 st.error("❌ PLEASE INPUT BOTH YOUR LEGAL FIRST NAME AND LAST NAME.")
@@ -90,15 +95,20 @@ if st.session_state.user is None and not st.session_state.is_boss:
                 st.error("❌ VALID REFERRER REQUIRED.")
             elif not reg[referrer].get('inv'):
                 st.error(f"❌ {referrer} IS NOT AN ACTIVE INVESTOR.")
-            elif rn in reg:
+            elif final_name in reg:
                 st.error("❌ THIS LEGAL NAME IS ALREADY REGISTERED.")
             else:
-                update_user(rn, {
-                    "pin": rp1, "wallet": 0.0, "inv": [], "tx": [], 
-                    "ref_by": referrer, "claimed_refs": []
+                update_user(final_name, {
+                    "pin": rp1, 
+                    "wallet": 0.0, 
+                    "inv": [], 
+                    "tx": [], 
+                    "ref_by": referrer, 
+                    "claimed_refs": []
                 })
                 st.success("✅ ACCOUNT CREATED SUCCESSFULLY!"); time.sleep(1.5); st.rerun()
     st.stop()
+    
 
 # --- 5. INVESTOR PORTAL ---
 if st.session_state.user:
