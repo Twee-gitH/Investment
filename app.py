@@ -6,12 +6,6 @@ import time
 import random
 import pandas as pd
 
-# --- DATA HELPERS ---
-def get_status_msg():
-    if os.path.exists("status.txt"):
-        with open("status.txt", "r") as f: return f.read()
-    return "Market cycles are currently STABLE."
-
 # --- 1. SESSION INITIALIZER ---
 if 'user' not in st.session_state: st.session_state.user = None
 if 'page' not in st.session_state: st.session_state.page = "main"
@@ -33,68 +27,24 @@ def update_user(name, data):
     with open(REGISTRY_FILE, "w") as f:
         json.dump(reg, f, default=str)
 
-# --- 3. PREMIUM MOBILE UI ---
+# --- 3. UI STYLING ---
 st.set_page_config(page_title="BPSM Official", layout="wide")
-
 st.markdown("""
     <style>
     [data-testid="stSidebar"] { display: none; }
     header { visibility: hidden; }
     .stApp { background-color: #0b0c0e; color: white; }
     .block-container { padding: 0 !important; max-width: 100% !important; }
-
-    .banner {
-        background: linear-gradient(135deg, #0038a8 0%, #ce1126 100%);
-        padding: 40px 20px; text-align: center; border-bottom: 5px solid #0dcf70;
-    }
-    .banner h1 { font-family: 'Arial Black'; font-size: 2.2rem; color: white; margin: 0; line-height: 1.1; text-shadow: 2px 2px #000; }
-    .banner p { font-size: 0.95rem; color: #ffffff; margin-top: 15px; font-weight: 600; line-height: 1.5; }
-
     .user-box { text-align: center; padding: 30px 10px; background: #111217; border-bottom: 1px solid #2a2b30; }
     .balance-val { color: #0dcf70; font-size: 3.5rem; font-weight: 900; margin: 5px 0; }
-    
-    .news-card {
-        background: #1c1e24; border: 1px solid #0038a8; padding: 15px;
-        border-radius: 15px; margin: 15px; border-left: 5px solid #0038a8; font-size: 0.9rem;
-    }
-
-    .section-header { 
-        background: #1c1e24; padding: 12px 20px; margin-top: 25px; 
-        border-left: 5px solid #0dcf70; font-weight: bold; font-size: 1.1rem;
-        text-transform: uppercase; color: #0dcf70;
-    }
-
-    .stButton>button {
-        width: 100% !important; border-radius: 15px !important; height: 4.5rem !important;
-        background: #1c1e24 !important; color: #ffffff !important;
-        border: 1px solid #3a3d46 !important; font-weight: bold !important;
-    }
-    
-    div[data-testid="stButton"] > button:contains("DEPLOY") {
-        background: #0dcf70 !important; color: #0b0c0e !important;
-        font-size: 1.3rem !important; font-weight: 900 !important; border: none !important;
-    }
-
-    .ticker-wrap {
-        background: #000; color: #0dcf70; padding: 12px 0;
-        position: fixed; bottom: 0; width: 100%; font-size: 0.85rem;
-        border-top: 1px solid #2a2b30; font-weight: bold; z-index: 999;
-    }
-
-    .stNumberInput input {
-        color: #000 !important; background-color: #fff !important; 
-        height: 3.8rem !important; font-size: 18px !important; font-weight: bold !important;
-    }
+    .section-header { background: #1c1e24; padding: 12px 20px; margin-top: 25px; border-left: 5px solid #0dcf70; font-weight: bold; text-transform: uppercase; color: #0dcf70; }
+    .ticker-wrap { background: #000; color: #0dcf70; padding: 12px 0; position: fixed; bottom: 0; width: 100%; font-size: 0.85rem; border-top: 1px solid #2a2b30; z-index: 999; }
     </style>
     """, unsafe_allow_html=True)
 
 # --- 4. ACCESS CONTROL ---
 if st.session_state.user is None:
-    st.markdown("""<div class="banner">
-        <h1>BAGONG PILIPINAS<br>STOCK MARKET</h1>
-        <p>Wholesale liquidation within 18 hours. You provide liquidity; we provide 10% daily ROI.</p>
-    </div>""", unsafe_allow_html=True)
-    
+    st.markdown("<div style='background: linear-gradient(135deg, #0038a8 0%, #ce1126 100%); padding: 40px 20px; text-align: center;'><h1>BAGONG PILIPINAS<br>STOCK MARKET</h1><p>Automatic 24-Hour Payouts | 5% Daily ROI</p></div>", unsafe_allow_html=True)
     t1, t2 = st.tabs(["🔑 SIGN-IN", "📝 REGISTER"])
     with t1:
         ln = st.text_input("INVESTOR NAME").upper()
@@ -109,7 +59,7 @@ if st.session_state.user is None:
         rp = st.text_input("CREATE 6-DIGIT PIN", type="password", max_chars=6)
         if st.button("CREATE ACCOUNT"):
             if rn and len(rp) == 6:
-                update_user(rn, {"pin": rp, "wallet": 0.0, "inv": [], "tx": [], "commissions": 0.0})
+                update_user(rn, {"pin": rp, "wallet": 0.0, "inv": [], "tx": []})
                 st.success("Account Created!")
 
 # --- 5. INVESTOR PORTAL ---
@@ -119,128 +69,135 @@ else:
     data = reg[name]
     now = datetime.now()
 
-    # Payout logic
+    # --- AUTOMATIC 24H PAYOUT & HISTORY LOGGING ---
     active_inv = []
-    payout = 0
+    payout_triggered = False
+    
     for i in data.get('inv', []):
-        if now >= datetime.fromisoformat(i['end']): payout += (i['amt'] + i['prof'])
-        else: active_inv.append(i)
-    if payout > 0:
-        data['wallet'] += payout
+        end_time = datetime.fromisoformat(i['end'])
+        if now >= end_time: 
+            profit_amt = i['amt'] * 0.05
+            total_return = i['amt'] + profit_amt
+            
+            # Update Wallet
+            data['wallet'] += total_return
+            
+            # Log exact profit history for this specific deposit
+            data.setdefault('tx', []).append({
+                "date": end_time.strftime("%Y-%m-%d %H:%M"),
+                "type": "PROFIT CREDIT",
+                "amt": total_return,
+                "status": "SUCCESS"
+            })
+            payout_triggered = True
+        else: 
+            active_inv.append(i)
+    
+    if payout_triggered:
         data['inv'] = active_inv
         update_user(name, data)
+        st.rerun()
 
     # UI Header
-    st.markdown(f"<div class='user-box'><p style='color:#8c8f99;'>AVAILABLE ASSETS</p><h1 class='balance-val'>₱{data['wallet']:,.2f}</h1><p style='color:#8c8f99;'>Account: {name}</p></div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='user-box'><p style='color:#8c8f99;'>WITHDRAWABLE BALANCE</p><h1 class='balance-val'>₱{data['wallet']:,.2f}</h1><p style='color:#8c8f99;'>Account: {name}</p></div>", unsafe_allow_html=True)
     
-    # Navigation Buttons
-    col_a, col_b = st.columns(2)
-    if col_a.button("📥 DEPOSIT"): 
-        st.session_state.page = "dep"
-        st.rerun()
-    if col_b.button("📤 WITHDRAW"): 
-        st.session_state.page = "wd"
-        st.rerun()
-    
-    if st.session_state.page != "main":
-        if st.button("⬅️ RETURN TO DASHBOARD"): 
-            st.session_state.page = "main"
+    col_act1, col_act2 = st.columns(2)
+    with col_act1:
+        if st.button("📥 DEPOSIT CAPITAL"): 
+            st.session_state.page = "dep"
             st.rerun()
+    with col_act2:
+        # Minimum withdrawal logic
+        if data['wallet'] >= 1000:
+            if st.button("📤 WITHDRAW"): 
+                st.session_state.page = "wd"
+                st.rerun()
+        else:
+            st.button("📤 WITHDRAW (Min. ₱1,000)", disabled=True)
 
-    # --- PAGE: DEPOSIT ---
+    # --- DEPOSIT PAGE ---
     if st.session_state.page == "dep":
-        st.markdown("<div class='section-header'>📥 FUND YOUR ACCOUNT</div>", unsafe_allow_html=True)
-        st.info("Transfer to the details below. Ensure the Reference Number is visible in your screenshot.")
-        
-        col1, col2 = st.columns(2)
-        with col1:
-            st.markdown("""**GCASH DETAILS:**\n- **Account Name:** T. TAN\n- **Account No:** 09XX XXX XXXX""")
-        with col2:
-            st.write("📲 *Scan QR for faster transfer*")
-
-        dep_amt = st.number_input("Amount Sent (PHP)", min_value=100.0, step=100.0)
-        receipt = st.file_uploader("Upload GCash Receipt", type=['jpg', 'png', 'jpeg'])
-
-        if st.button("SUBMIT DEPOSIT FOR VERIFICATION"):
-            if receipt and dep_amt >= 100:
-                new_tx = {"date": datetime.now().strftime("%Y-%m-%d %H:%M"), "type": "DEPOSIT", "amt": dep_amt, "status": "PENDING VERIFICATION"}
-                data.setdefault('tx', []).append(new_tx)
+        st.markdown("<div class='section-header'>📥 FUND YOUR ACCOUNT</div>")
+        dep_amt = st.number_input("Amount (PHP)", min_value=100.0)
+        receipt = st.file_uploader("Upload Receipt", type=['jpg', 'png', 'jpeg'])
+        if st.button("SUBMIT FOR APPROVAL"):
+            if receipt:
+                data.setdefault('tx', []).append({"date": now.strftime("%Y-%m-%d %H:%M"), "type": "DEPOSIT", "amt": dep_amt, "status": "PENDING"})
                 update_user(name, data)
-                st.success("✅ Receipt submitted! Verification in progress.")
-                time.sleep(2)
-                st.session_state.page = "main"
-                st.rerun()
+                st.success("Submitted! Awaiting Admin Verification.")
+                time.sleep(2); st.session_state.page = "main"; st.rerun()
+        if st.button("⬅️ CANCEL"): st.session_state.page = "main"; st.rerun()
 
-    # --- PAGE: MAIN DASHBOARD ---
+    # --- WITHDRAWAL PAGE ---
+    if st.session_state.page == "wd":
+        st.markdown("<div class='section-header'>📤 WITHDRAW FUNDS</div>")
+        wd_amt = st.number_input("Withdraw Amount (Min 1,000)", min_value=1000.0, max_value=data['wallet'])
+        if st.button("REQUEST WITHDRAWAL"):
+            data['wallet'] -= wd_amt
+            data.setdefault('tx', []).append({"date": now.strftime("%Y-%m-%d %H:%M"), "type": "WITHDRAW", "amt": wd_amt, "status": "PENDING"})
+            update_user(name, data)
+            st.success("Withdrawal request sent!")
+            time.sleep(2); st.session_state.page = "main"; st.rerun()
+        if st.button("⬅️ CANCEL"): st.session_state.page = "main"; st.rerun()
+
+    # --- ACTIVE CYCLES ---
     if st.session_state.page == "main":
-        st.markdown("<div class='section-header'>🚀 DEPLOYMENT CENTER</div>", unsafe_allow_html=True)
-        inv_a = st.number_input("Capital PHP", min_value=100.0, step=100.0)
-        if st.button("CONFIRM & DEPLOY CAPITAL"):
-            if data['wallet'] >= inv_a:
-                data['wallet'] -= inv_a
-                data.setdefault('inv', []).append({"amt": inv_a, "prof": inv_a*0.1, "end": (now + timedelta(hours=24)).isoformat()})
-                update_user(name, data)
-                st.rerun()
+        st.markdown("<div class='section-header'>⏳ ACTIVE 24H CYCLES (5% ROI)</div>", unsafe_allow_html=True)
+        if not active_inv:
+            st.write("No active cycles.")
+        else:
+            for t in active_inv:
+                start_t = datetime.fromisoformat(t['start'])
+                end_t = datetime.fromisoformat(t['end'])
+                prog = min((now - start_t).total_seconds() / (end_t - start_t).total_seconds(), 1.0)
+                live_int = (t['amt'] * 0.05) * prog
+                rem = end_t - now
 
-        st.markdown("<div class='section-header'>⏳ ACTIVE 24H CYCLES</div>", unsafe_allow_html=True)
-        if not active_inv: st.write("No active cycles.")
-        for t in active_inv:
-            rem = datetime.fromisoformat(t['end']) - now
-            st.markdown(f"<div style='background:#1c1e24; padding:20px; border-radius:15px; border:1px solid #3a3d46; text-align:center; margin-bottom:10px;'><p style='color:#8c8f99; margin:0;'>Active Trade: ₱{t['amt']:,}</p><div style='color:#0dcf70; font-size:2rem; font-weight:bold; font-family:monospace;'>{str(rem).split('.')[0]}</div></div>", unsafe_allow_html=True)
+                st.markdown(f"""
+                <div style='background:#1c1e24; padding:15px; border-radius:15px; border:1px solid #3a3d46; margin-bottom:10px;'>
+                    <div style='display:flex; justify-content:space-between;'>
+                        <span>Principal: ₱{t['amt']:,}</span>
+                        <span style='color:#0dcf70;'>Accrued: +₱{live_int:,.2f}</span>
+                    </div>
+                    <div style='color:#0dcf70; font-size:1.8rem; font-weight:bold; text-align:center;'>{str(rem).split(".")[0]}</div>
+                </div>
+                """, unsafe_allow_html=True)
 
-        st.markdown("<div class='section-header'>📜 TRANSACTION LOGS</div>", unsafe_allow_html=True)
+        st.markdown("<div class='section-header'>📜 COMPLETE HISTORY</div>", unsafe_allow_html=True)
         for t in reversed(data.get('tx', [])):
             st.write(f"**{t['date']}** | {t['type']} | ₱{t['amt']:,} | `{t['status']}`")
 
-    # Ticker and Logout
-    ticker_text = f"🔥 FLASH: Market liquidation successful! All 24H cycles closed with +10% gains."
-    st.markdown(f"""<div class="ticker-wrap"><marquee>{ticker_text}</marquee></div>""", unsafe_allow_html=True)
     if st.sidebar.button("LOGOUT"):
         st.session_state.user = None
         st.rerun()
 
-# --- 6. THE HIDDEN BOSS PANEL ---
+# --- 6. BOSS PANEL ---
 st.divider()
 with st.expander("⚠️"):
-    boss_input = st.text_input("Key", type="password")
-    if st.button("ENTER"):
-        if boss_input == "Orange01!":
-            st.session_state.is_boss = True
-            st.rerun()
+    if st.button("ENTER ADMIN"):
+        if st.text_input("Key", type="password") == "Orange01!":
+            st.session_state.is_boss = True; st.rerun()
 
 if st.session_state.get("is_boss"):
-    st.divider()
     all_users = load_registry()
-    if "show_adm" not in st.session_state: st.session_state.show_adm = False
-    if st.button("🔓 OPEN / 🔒 CLOSE CONTROLS"):
-        st.session_state.show_adm = not st.session_state.show_adm
-        st.rerun()
-
-    if st.session_state.show_adm:
-        st.markdown("### 👑 BPSM MASTER CONTROL")
-        
-        # PENDING DEPOSITS APPROVAL
-        st.markdown("<div class='section-header'>🔎 PENDING DEPOSITS</div>", unsafe_allow_html=True)
-        for u_name, u_info in all_users.items():
-            for idx, tx in enumerate(u_info.get('tx', [])):
-                if tx['status'] == "PENDING VERIFICATION":
-                    st.warning(f"**{u_name}** sent **₱{tx['amt']:,}**")
-                    if st.button(f"APPROVE ₱{tx['amt']:,} for {u_name}", key=f"app_{u_name}_{idx}"):
+    st.markdown("### 👑 ADMIN APPROVALS")
+    
+    for u_name, u_info in all_users.items():
+        for idx, tx in enumerate(u_info.get('tx', [])):
+            if tx['status'] == "PENDING":
+                st.warning(f"{tx['type']}: {u_name} | ₱{tx['amt']:,}")
+                if st.button(f"APPROVE {u_name}", key=f"app_{u_name}_{idx}"):
+                    if tx['type'] == "DEPOSIT":
                         all_users[u_name]['tx'][idx]['status'] = "SUCCESS"
-                        all_users[u_name]['wallet'] += tx['amt']
-                        with open(REGISTRY_FILE, "w") as f: json.dump(all_users, f, default=str)
-                        st.success("Verified!"); st.rerun()
+                        start = datetime.now()
+                        all_users[u_name].setdefault('inv', []).append({
+                            "amt": tx['amt'], "start": start.isoformat(), "end": (start + timedelta(hours=24)).isoformat()
+                        })
+                    else: # Withdrawal approval
+                        all_users[u_name]['tx'][idx]['status'] = "SUCCESS"
+                    
+                    with open(REGISTRY_FILE, "w") as f: json.dump(all_users, f, default=str)
+                    st.success("Action Verified!"); st.rerun()
 
-        # INVESTOR LIST
-        user_creds = [{"Investor": n, "Balance": f"₱{i.get('wallet',0):,.2f}", "PIN": i.get('pin','N/A')} for n,i in all_users.items()]
-        st.table(user_creds)
-
-        # QUICK ADJUST
-        st.markdown("<div class='section-header'>🛠️ QUICK BALANCE ADJUST</div>", unsafe_allow_html=True)
-        target = st.selectbox("Select User", list(all_users.keys()))
-        amt = st.selectbox("Amount PHP", [500, 1000, 5000, 10000, 50000])
-        if st.button(f"ADD ₱{amt:,} TO {target}"):
-            all_users[target]['wallet'] += amt
-            all_users[target].setdefault('tx', []).append({"date": datetime.now().strftime("%Y-%m-%d %H:%M"), "type": "ADMIN", "amt": amt, "status": "DONE"})
-            with open(REGISTRY_FILE, "w") as f: json.dump(all_users, f, default=str)
-            st.success("Updated!"); st.rerun()
+time.sleep(1)
+st.rerun()
