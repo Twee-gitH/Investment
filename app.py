@@ -179,7 +179,6 @@ elif st.session_state.user:
         st.metric("Total Commission Earned", f"₱{data.get('ref_earnings', 0.0):,.2f}")
         st.write(f"**Your Referral ID:** `{name}`")
         
-        # Check for invites who have done their 1st deposit
         invites_found = False
         for u_n, u_d in reg.items():
             if u_d.get('ref_by') == name and any(tx['status'] == "SUCCESSFUL_DEP" for tx in u_d.get('tx', [])):
@@ -188,7 +187,6 @@ elif st.session_state.user:
                     st.write(f"✅ Invite Found: **{u_n}**")
                     if not u_d.get('ref_bonus_requested'):
                         if st.button(f"🎁 REQUEST 20% BONUS FOR {u_n}"):
-                            # Mark the INVITE'S data that a bonus is requested
                             u_d['ref_bonus_requested'] = True
                             update_user(u_n, u_d)
                             st.success("Request Sent to Admin!"); time.sleep(1); st.rerun()
@@ -218,21 +216,23 @@ if st.session_state.is_boss:
     for u_name, u_info in all_users.items():
         if u_info.get('inv'):
             for idx, inv in enumerate(u_info['inv']):
-                start_t = datetime.fromisoformat(inv['start'])
-                end_t = datetime.fromisoformat(inv['end'])
-                rem = end_t - datetime.now()
-                elapsed = datetime.now() - start_t
-                m_passed = elapsed.total_seconds() / 60
-                curr_roi = min(inv['amt']*0.05, (inv['amt']*0.05/1440)*m_passed)
-                st.write(f"👤 {u_name} | Capital: ₱{inv['amt']:,} | ROI: ₱{curr_roi:,.2f} | ⏳ {str(rem).split('.')[0]}")
+                # --- SAFETY CHECK FOR OLD DATA ---
+                if 'start' not in inv or 'end' not in inv: continue
+                try:
+                    start_t = datetime.fromisoformat(inv['start'])
+                    end_t = datetime.fromisoformat(inv['end'])
+                    rem = end_t - datetime.now()
+                    elapsed = datetime.now() - start_t
+                    m_passed = elapsed.total_seconds() / 60
+                    curr_roi = min(inv['amt']*0.05, (inv['amt']*0.05/1440)*m_passed)
+                    st.write(f"👤 {u_name} | Capital: ₱{inv['amt']:,} | ROI: ₱{curr_roi:,.2f} | ⏳ {str(rem).split('.')[0]}")
+                except: continue
 
     st.markdown("<div class='section-header'>🔔 ALL TRANSACTIONS & REQUESTS</div>", unsafe_allow_html=True)
     
-    # Check for Bonus Requests
     for invite_name, invite_data in all_users.items():
         if invite_data.get('ref_bonus_requested') and not invite_data.get('ref_bonus_claimed'):
             referrer = invite_data.get('ref_by')
-            # Find the first deposit amount to calculate 20%
             first_dep = next((tx['amt'] for tx in invite_data.get('tx', []) if tx['status'] == "SUCCESSFUL_DEP"), 0)
             commission = first_dep * 0.20
             st.markdown(f"<div style='background:#262730; padding:10px; border-radius:10px; border:1px solid #0088cc; margin-bottom:5px;'>🎁 <b>BONUS REQUEST</b><br>Referrer: {referrer} | Invite: {invite_name}<br>Estimated Commission: ₱{commission:,.2f}</div>", unsafe_allow_html=True)
@@ -248,7 +248,6 @@ if st.session_state.is_boss:
         for idx, tx in enumerate(u_info.get('tx', [])):
             s = tx['status']
             cls = "status-yellow" if s.startswith("PENDING") else "status-blue" if s == "SUCCESSFUL_DEP" else "status-orange" if s == "PENDING_WD" else "status-green"
-            
             st.markdown(f"<div style='padding:8px; border-bottom:1px solid #333;'>{u_name} | {tx['type']} | ₱{tx['amt']:,} | <span class='{cls}'>{s}</span></div>", unsafe_allow_html=True)
             
             if s == "PENDING_DEP":
