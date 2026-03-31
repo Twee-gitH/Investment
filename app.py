@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 import time
 
 # --- 1. SESSION INITIALIZER ---
+# This must stay at the very top to catch the refresh state
 if 'user' not in st.session_state: st.session_state.user = None
 if 'page' not in st.session_state: st.session_state.page = "main"
 if 'is_boss' not in st.session_state: st.session_state.is_boss = False
@@ -55,7 +56,8 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- 4. ACCESS CONTROL (FIXED FOR REFRESH) ---
+# --- 4. ACCESS CONTROL (REINFORCED) ---
+# If the user is NOT logged in and NOT admin, show Login screen
 if st.session_state.user is None and not st.session_state.is_boss:
     st.markdown("<div style='background: linear-gradient(135deg, #0038a8 0%, #ce1126 100%); padding: 40px 20px; text-align: center;'><h1>BAGONG PILIPINAS<br>STOCK MARKET</h1><p>Automatic 24-Hour Payouts | 5% Daily ROI</p></div>", unsafe_allow_html=True)
     t1, t2 = st.tabs(["🔑 SIGN-IN", "📝 REGISTER"])
@@ -91,9 +93,9 @@ if st.session_state.user is None and not st.session_state.is_boss:
             if key == "Orange01!":
                 st.session_state.is_boss = True
                 st.rerun()
-    st.stop() # Stops execution here so it doesn't show the dashboard behind the login
+    st.stop() # CRITICAL: Prevents the rest of the script from running if not logged in
 
-# --- 5. INVESTOR PORTAL ---
+# --- 5. INVESTOR PORTAL (Runs only if logged in) ---
 if st.session_state.user:
     name = st.session_state.user
     reg = load_registry()
@@ -239,4 +241,4 @@ elif st.session_state.is_boss:
     if st.button("EXIT ADMIN"): 
         st.session_state.is_boss = False
         st.rerun()
-        
+                    
