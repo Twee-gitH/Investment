@@ -80,7 +80,6 @@ if st.session_state.user is None and not st.session_state.is_boss:
             elif referrer not in reg: st.error("Referrer not found.")
             elif rn in reg: st.error("Already registered.")
             elif rn and len(rp) == 6:
-                # Initialize bonus tracking flags
                 new_data = {"pin": rp, "wallet": 0.0, "inv": [], "tx": [], "ref_by": referrer, "bonus_claimed": False}
                 update_user(rn, new_data)
                 st.success("Account Created!")
@@ -112,16 +111,16 @@ if st.session_state.user:
                 data['wallet'] += profit_amt
                 i['start'] = now.isoformat()
                 i['end'] = (now + timedelta(days=7)).isoformat()
-                data.setdefault('tx', []).append({"date": now.strftime("%Y-%m-%d %H:%M"), "type": "WEEKLY ROI", "amt": profit_amt, "status": "SUCCESSFUL"})
+                data.setdefault('tx', []).append({"date": now.strftime("%Y-%m-%d %H:%M"), "type": "WEEKLY ROI CREDIT", "amt": profit_amt, "status": "SUCCESSFUL"})
                 payout_triggered = True
         except: continue
     if payout_triggered: update_user(name, data); st.rerun()
 
-    st.markdown(f"<div class='user-box'><p style='color:#8c8f99;'>BALANCE</p><h1 class='balance-val'>₱{data['wallet']:,.2f}</h1></div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='user-box'><p style='color:#8c8f99;'>BALANCE</p><h1 class='balance-val'>₱{data['wallet']:,.2f}</h1><p style='color:#8c8f99;'>Account: {name}</p></div>", unsafe_allow_html=True)
 
     if st.session_state.page == "dep":
         st.markdown("<div class='section-header'>📥 DEPOSIT</div>", unsafe_allow_html=True)
-        d_amt = st.number_input("Amount", min_value=1000.0, step=100.0)
+        d_amt = st.number_input("Amount", min_value=1000.0)
         receipt = st.file_uploader("Receipt", type=['jpg','png'])
         if st.button("SUBMIT"):
             if receipt:
@@ -141,14 +140,14 @@ if st.session_state.user:
         if st.button("⬅️ BACK"): st.session_state.page = "main"; st.rerun()
 
     else:
-        col1, col2 = st.columns(2)
-        with col1: 
+        c1, c2 = st.columns(2)
+        with c1: 
             if st.button("📥 DEPOSIT"): st.session_state.page = "dep"; st.rerun()
-        with col2: 
+        with c2: 
             if st.button("📤 WITHDRAW"): st.session_state.page = "wd"; st.rerun()
 
-        # --- UPDATED: REFERRAL BONUS CLAIM SECTION ---
-        st.markdown("<div class='section-header'>👥 MY REFERRALS & 20% BONUSES</div>", unsafe_allow_html=True)
+        # Referral Section
+        st.markdown("<div class='section-header'>👥 MY REFERRALS</div>", unsafe_allow_html=True)
         for u_name, u_info in reg.items():
             if u_info.get('ref_by') == name:
                 first_dep = 0.0
@@ -158,21 +157,15 @@ if st.session_state.user:
                         break
                 
                 bonus_amt = first_dep * 0.20
-                status = "NO DEPOSIT YET"
                 if first_dep > 0:
-                    if u_info.get('bonus_claimed') == "APPROVED":
-                        status = f"✅ BONUS CLAIMED (₱{bonus_amt:,.2f})"
-                    elif u_info.get('bonus_claimed') == "PENDING":
-                        status = "⏳ PENDING ADMIN APPROVAL"
+                    status = u_info.get('bonus_claimed', "NOT_CLAIMED")
+                    if status == "APPROVED": st.write(f"✅ {u_name} | Bonus ₱{bonus_amt:,.2f} Claimed")
+                    elif status == "PENDING": st.write(f"⏳ {u_name} | Bonus PENDING Approval")
                     else:
-                        status = f"🎁 BONUS AVAILABLE: ₱{bonus_amt:,.2f}"
-                        if st.button(f"CLAIM BONUS FROM {u_name}", key=f"claim_{u_name}"):
+                        if st.button(f"CLAIM 20% BONUS FROM {u_name} (₱{bonus_amt:,.2f})"):
                             u_info['bonus_claimed'] = "PENDING"
-                            update_user(u_name, u_info)
-                            st.success("Claim submitted to Admin!")
-                            time.sleep(1); st.rerun()
-                
-                st.write(f"**{u_name}** | First Deposit: ₱{first_dep:,.2f} | Status: {status}")
+                            update_user(u_name, u_info); st.rerun()
+                else: st.write(f"👤 {u_name} | No Deposit Yet")
 
         st.markdown("<div class='section-header'>⏳ ACTIVE CYCLES</div>", unsafe_allow_html=True)
         for idx, t in enumerate(reversed(data.get('inv', []))):
@@ -186,36 +179,38 @@ elif st.session_state.is_boss:
     all_users = load_registry()
     st.markdown("### 👑 MASTER CONTROL")
 
-    # --- NEW: REFERRAL BONUS APPROVAL ---
-    st.markdown("<div class='section-header'>🎁 PENDING REFERRAL BONUSES (20%)</div>", unsafe_allow_html=True)
+    # --- PENDING REFERRAL BONUSES ---
+    st.markdown("<div class='section-header'>🎁 PENDING REFERRAL BONUSES</div>", unsafe_allow_html=True)
     for u_name, u_info in all_users.items():
         if u_info.get('bonus_claimed') == "PENDING":
-            referrer_name = u_info.get('ref_by')
-            # Calculate bonus from first deposit
-            first_dep = 0.0
-            for tx in u_info.get('tx', []):
-                if tx['type'] == "DEPOSIT" and tx['status'] == "SUCCESSFUL_DEP":
-                    first_dep = tx['amt']
-                    break
-            bonus_amt = first_dep * 0.20
-            
-            if st.button(f"APPROVE ₱{bonus_amt:,.2f} BONUS for {referrer_name} (Invited {u_name})"):
-                # Credit the Referrer
-                if referrer_name in all_users:
-                    all_users[referrer_name]['wallet'] += bonus_amt
-                    all_users[referrer_name].setdefault('tx', []).append({
-                        "date": datetime.now().strftime("%Y-%m-%d %H:%M"),
-                        "type": "REFERRAL BONUS",
-                        "amt": bonus_amt,
-                        "status": "SUCCESSFUL"
-                    })
-                # Mark the bonus as approved in the Invitee's record
+            ref = u_info.get('ref_by')
+            f_dep = next((t['amt'] for t in u_info.get('tx', []) if t['type']=="DEPOSIT" and t['status']=="SUCCESSFUL_DEP"), 0)
+            b_amt = f_dep * 0.20
+            if st.button(f"APPROVE ₱{b_amt:,.2f} for {ref} (Invited {u_name})"):
+                all_users[ref]['wallet'] += b_amt
                 all_users[u_name]['bonus_claimed'] = "APPROVED"
-                # Save both updates
-                with open(REGISTRY_FILE, "w") as f: json.dump(all_users, f, default=str)
-                st.success("Bonus Approved!"); time.sleep(1); st.rerun()
+                update_user(u_name, all_users[u_name])
+                update_user(ref, all_users[ref]); st.rerun()
 
-    st.markdown("<div class='section-header'>🔔 PENDING DEPOSITS/WITHDRAWALS</div>", unsafe_allow_html=True)
+    # --- RESTORED: INVESTOR DATABASE ---
+    st.markdown("<div class='section-header'>📋 INVESTOR DATABASE (NAMES, PINS, REFERRALS)</div>", unsafe_allow_html=True)
+    db_list = [{"NAME": u, "PIN": i.get('pin'), "WALLET": f"₱{i.get('wallet',0):,.2f}", "REFERRER": i.get('ref_by','DIRECT')} for u,i in all_users.items()]
+    st.table(pd.DataFrame(db_list))
+
+    # --- RESTORED: TRANSACTION HISTORY ---
+    with st.expander("🔍 VIEW ALL INDIVIDUAL TRANSACTIONS"):
+        for u_name, u_info in all_users.items():
+            st.write(f"**{u_name}**"); st.json(u_info.get('tx', [])); st.divider()
+
+    # --- RESTORED: REAL-TIME ROI TRACKER ---
+    st.markdown("<div class='section-header'>📈 REAL-TIME INVESTOR ROI</div>", unsafe_allow_html=True)
+    for u_name, u_info in all_users.items():
+        for inv in u_info.get('inv', []):
+            rem = datetime.fromisoformat(inv['end']) - datetime.now()
+            st.write(f"👤 {u_name} | Capital: ₱{inv['amt']:,} | ⏳ {str(rem).split('.')[0]}")
+
+    # --- PENDING DEPOSITS/WITHDRAWALS ---
+    st.markdown("<div class='section-header'>🔔 PENDING ACTIONS</div>", unsafe_allow_html=True)
     for u_name, u_info in all_users.items():
         for idx, tx in enumerate(u_info.get('tx', [])):
             if tx['status'] == "PENDING_DEP":
@@ -230,4 +225,4 @@ elif st.session_state.is_boss:
                     update_user(u_name, all_users[u_name]); st.rerun()
     
     if st.button("EXIT ADMIN"): st.session_state.is_boss = False; st.rerun()
-                        
+        
