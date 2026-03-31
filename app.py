@@ -174,18 +174,40 @@ if st.session_state.user:
                             update_user(name, data); st.rerun()
                 except: continue
 
-        # --- RESTORED REFERRAL SECTION ---
+        # --- 20% REFERRAL BONUS SECTION ---
         st.markdown("<div class='section-header'>👥 MY REFERRALS</div>", unsafe_allow_html=True)
         reg_all = load_registry()
-        # Filter all users who were referred by the current user
-        my_refs = [{"NAME": u, "CAPITAL": sum([inv['amt'] for inv in info.get('inv', [])])} 
-                   for u, info in reg_all.items() if info.get('ref_by') == name]
+        my_refs_list = []
         
-        if my_refs:
-            ref_df = pd.DataFrame(my_refs)
-            st.table(ref_df)
-            total_comm = sum([r['CAPITAL'] for r in my_refs]) * 0.05
-            st.success(f"💰 Earned Commission (5%): ₱{total_comm:,.2f}")
+        for u_name, u_info in reg_all.items():
+            if u_info.get('ref_by') == name:
+                # Find the first successful deposit amount
+                first_dep_amt = 0
+                for tx in u_info.get('tx', []):
+                    if tx['status'] == "SUCCESSFUL_DEP":
+                        first_dep_amt = tx['amt']
+                        break
+                
+                my_refs_list.append({
+                    "INVITEE": u_name,
+                    "1ST DEPOSIT": f"₱{first_dep_amt:,.2f}",
+                    "BONUS (20%)": first_dep_amt * 0.20
+                })
+        
+        if my_refs_list:
+            st.table(pd.DataFrame(my_refs_list))
+            total_pending_bonus = sum([r["BONUS (20%)"] for r in my_refs_list])
+            
+            if not data.get('bonus_claimed', False):
+                st.write(f"### Available Bonus: ₱{total_pending_bonus:,.2f}")
+                if st.button("🎁 CLAIM 20% REFERRAL BONUS"):
+                    data['wallet'] += total_pending_bonus
+                    data['bonus_claimed'] = True
+                    data.setdefault('tx', []).append({"date": now.strftime("%Y-%m-%d %H:%M"), "type": "REFERRAL BONUS", "amt": total_pending_bonus, "status": "SUCCESSFUL"})
+                    update_user(name, data)
+                    st.success("Bonus added to balance!"); time.sleep(1); st.rerun()
+            else:
+                st.success("✅ Bonuses already claimed.")
         else:
             st.info("No invitees found.")
 
