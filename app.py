@@ -45,7 +45,8 @@ st.markdown("""
     .user-box { text-align: center; padding: 30px 10px; background: #111217; border-bottom: 1px solid #2a2b30; }
     .balance-val { color: #0dcf70; font-size: 3.5rem; font-weight: 900; margin: 5px 0; }
     .section-header { background: #1c1e24; padding: 12px 20px; margin-top: 25px; border-left: 5px solid #0dcf70; font-weight: bold; text-transform: uppercase; color: #0dcf70; }
-    .roi-text { color: #0dcf70; font-weight: bold; font-size: 1.2rem; }
+    .roi-text { color: #0dcf70; font-weight: bold; font-size: 1.1rem; }
+    .meta-text { color: #8c8f99; font-size: 0.85rem; margin-bottom: 2px; }
     .stButton>button { border-radius: 12px !important; height: 3.5rem !important; font-weight: bold !important; width: 100%; }
     </style>
     """, unsafe_allow_html=True)
@@ -150,7 +151,7 @@ if st.session_state.user:
                 f_d = next((t['amt'] for t in u_i.get('tx', []) if t['type']=="DEPOSIT" and t['status']=="SUCCESSFUL_DEP"), 0)
                 st.write(f"👤 {u_n} | {'No Deposit' if f_d == 0 else f'First Deposit: ₱{f_d:,.1f}'}")
 
-        # Active Cycles (With PULL CAPITAL button)
+        # Active Cycles (With Deposit, Maturity, and Exact ROI)
         st.markdown("<div class='section-header'>⏳ ACTIVE CYCLES</div>", unsafe_allow_html=True)
         if not data.get('inv'): st.write("No active interest running.")
         else:
@@ -159,12 +160,16 @@ if st.session_state.user:
                 try:
                     start_t, end_t = datetime.fromisoformat(t['start']), datetime.fromisoformat(t['end'])
                     rem, elapsed = end_t - now, now - start_t
-                    running_roi = min(t['amt']*0.20, (t['amt']*0.20/10080)*(elapsed.total_seconds()/60))
+                    exact_roi = t['amt'] * 0.20
+                    running_roi = min(exact_roi, (exact_roi/10080)*(elapsed.total_seconds()/60))
+                    
                     st.markdown(f"""
                     <div style='background:#1c1e24; padding:15px; border-radius:15px; border:1px solid #3a3d46; margin-bottom:10px;'>
-                        <div style='display:flex; justify-content:space-between;'>
+                        <div class='meta-text'>📅 DEPOSIT: {start_t.strftime('%Y-%m-%d %I:%M %p')}</div>
+                        <div class='meta-text'>🏁 MATURITY: {end_t.strftime('%Y-%m-%d %I:%M %p')}</div>
+                        <div style='display:flex; justify-content:space-between; margin-top:5px;'>
                             <span style='font-weight:bold;'>Capital: ₱{t['amt']:,}</span>
-                            <span class='roi-text'>ROI: ₱{running_roi:,.2f}</span>
+                            <span class='roi-text'>ROI: ₱{exact_roi:,.2f}</span>
                         </div>
                         <div style='color:#0dcf70; font-size:1.8rem; font-weight:bold; text-align:center;'>{str(rem).split('.')[0]}</div>
                     </div>
@@ -178,7 +183,7 @@ if st.session_state.user:
                         update_user(name, data); st.rerun()
                 except: continue
 
-        # RESTORED: TRANSACTION LOGS
+        # History
         st.markdown("<div class='section-header'>📜 HISTORY</div>", unsafe_allow_html=True)
         for t in reversed(data.get('tx', [])):
             st.write(f"{t['date']} | {t['type']} | ₱{t['amt']:,} | {t['status']}")
@@ -208,4 +213,4 @@ elif st.session_state.is_boss:
                     update_user(u_name, all_users[u_name]); st.rerun()
     
     if st.button("EXIT ADMIN"): st.session_state.is_boss = False; st.rerun()
-            
+        
