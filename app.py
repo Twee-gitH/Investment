@@ -10,6 +10,10 @@ if 'page' not in st.session_state: st.session_state.page = "main"
 if 'is_boss' not in st.session_state: st.session_state.is_boss = False
 if 'confirm_amt' not in st.session_state: st.session_state.confirm_amt = False
 
+# Ensure receipts folder exists
+if not os.path.exists("receipts"):
+    os.makedirs("receipts")
+
 # --- 2. DATA ENGINE ---
 REGISTRY_FILE = "bpsm_registry.json"
 
@@ -39,10 +43,8 @@ st.markdown("""
     .balance-val { color: #0dcf70; font-size: 3.5rem; font-weight: 900; margin: 5px 0; }
     .section-header { background: #1c1e24; padding: 12px 20px; margin-top: 25px; border-left: 5px solid #0dcf70; font-weight: bold; text-transform: uppercase; color: #0dcf70; }
     .ticker-wrap { background: #000; color: #0dcf70; padding: 12px 0; position: fixed; bottom: 0; width: 100%; font-size: 0.85rem; border-top: 1px solid #2a2b30; z-index: 999; overflow: hidden; }
-    
     @keyframes ticker { 0% { transform: translateX(100%); } 100% { transform: translateX(-100%); } }
     .ticker-text { display: inline-block; white-space: nowrap; animation: ticker 25s linear infinite; font-weight: bold; }
-    
     .stButton>button { border-radius: 12px !important; height: 3.5rem !important; font-weight: bold !important; width: 100%; }
     </style>
     """, unsafe_allow_html=True)
@@ -83,28 +85,21 @@ else:
             profit_amt = i['amt'] * 0.05
             total_return = i['amt'] + profit_amt
             data['wallet'] += total_return
-            data.setdefault('tx', []).append({
-                "date": end_time.strftime("%Y-%m-%d %H:%M"),
-                "type": "PROFIT CREDIT", "amt": total_return, "status": "SUCCESSFUL"
-            })
+            data.setdefault('tx', []).append({"date": end_time.strftime("%Y-%m-%d %H:%M"), "type": "PROFIT CREDIT", "amt": total_return, "status": "SUCCESSFUL"})
             payout_triggered = True
-        else: 
-            active_inv.append(i)
+        else: active_inv.append(i)
     
     if payout_triggered:
         data['inv'] = active_inv
         update_user(name, data); st.rerun()
 
-    # ADVERTISEMENTS
-    st.markdown("""<div class="ticker-wrap"><div class="ticker-text">🔥 MARKET ALERT: All 24H Liquidation Cycles Completed! Check your wallets. | 📈 JOIN BPSM: Earn 5% Daily Interest on your Capital. | 🚀 SECURE: Official Bagong Pilipinas Stock Market Portal.</div></div>""", unsafe_allow_html=True)
-
+    st.markdown("""<div class="ticker-wrap"><div class="ticker-text">🔥 MARKET ALERT: All 24H Liquidation Cycles Completed! | 📈 JOIN BPSM: Earn 5% Daily Interest | 🚀 SECURE: Official Bagong Pilipinas Stock Market Portal.</div></div>""", unsafe_allow_html=True)
     st.markdown(f"<div class='user-box'><p style='color:#8c8f99;'>WITHDRAWABLE BALANCE</p><h1 class='balance-val'>₱{data['wallet']:,.2f}</h1><p style='color:#8c8f99;'>Account: {name}</p></div>", unsafe_allow_html=True)
 
     # --- PAGE: DEPOSIT ---
     if st.session_state.page == "dep":
         st.markdown("<div class='section-header'>📥 DEPOSIT CAPITAL</div>", unsafe_allow_html=True)
-        
-        d_amt = st.number_input("Enter Deposit Amount (PHP)", min_value=100.0, step=100.0, disabled=st.session_state.confirm_amt)
+        d_amt = st.number_input("Enter Amount (PHP)", min_value=100.0, step=100.0, disabled=st.session_state.confirm_amt)
         
         if not st.session_state.confirm_amt:
             if st.button("CONFIRM AMOUNT"):
@@ -113,46 +108,45 @@ else:
                     st.rerun()
         else:
             st.success(f"Amount Confirmed: ₱{d_amt:,.2f}")
-            receipt = st.file_uploader("Now, Upload GCash Receipt Screenshot", type=['jpg', 'png', 'jpeg'])
+            receipt = st.file_uploader("Upload GCash Receipt", type=['jpg', 'png', 'jpeg'])
             
             if st.button("SUBMIT DEPOSIT"):
                 if receipt:
-                    data.setdefault('tx', []).append({"date": now.strftime("%Y-%m-%d %H:%M"), "type": "DEPOSIT", "amt": d_amt, "status": "SUBMITTED"})
+                    # Logic to save the actual image file
+                    file_path = f"receipts/{name}_{int(time.time())}.jpg"
+                    with open(file_path, "wb") as f:
+                        f.write(receipt.getbuffer())
+                    
+                    data.setdefault('tx', []).append({
+                        "date": now.strftime("%Y-%m-%d %H:%M"), 
+                        "type": "DEPOSIT", 
+                        "amt": d_amt, 
+                        "status": "SUBMITTED",
+                        "receipt_path": file_path # Save path for Admin
+                    })
                     update_user(name, data)
                     st.session_state.confirm_amt = False
                     st.session_state.page = "main"
                     st.success("Submitted!"); time.sleep(1); st.rerun()
             
             if st.button("🔄 CHANGE AMOUNT"):
-                st.session_state.confirm_amt = False
-                st.rerun()
+                st.session_state.confirm_amt = False; st.rerun()
 
-        if st.button("⬅️ BACK TO DASHBOARD"): 
-            st.session_state.confirm_amt = False
-            st.session_state.page = "main"
-            st.rerun()
+        if st.button("⬅️ BACK"): st.session_state.confirm_amt = False; st.session_state.page = "main"; st.rerun()
 
     # --- PAGE: WITHDRAW ---
     elif st.session_state.page == "wd":
         st.markdown("<div class='section-header'>📤 WITHDRAW FUNDS</div>", unsafe_allow_html=True)
-        w_amt = st.number_input("Amount to Withdraw", min_value=1000.0, max_value=data['wallet'], step=100.0)
-        w_method = st.selectbox("CHOOSE METHOD", ["GCASH", "BANK TRANSFER", "PAYMAYA"])
+        w_amt = st.number_input("Amount", min_value=1000.0, max_value=data['wallet'], step=100.0)
+        w_method = st.selectbox("METHOD", ["GCASH", "BANK TRANSFER", "PAYMAYA"])
         w_info = st.text_input("ACCOUNT NAME & NUMBER")
         
         if st.button("SUBMIT WITHDRAWAL"):
             if w_info:
                 data['wallet'] -= w_amt
-                data.setdefault('tx', []).append({
-                    "date": now.strftime("%Y-%m-%d %H:%M"), 
-                    "type": f"WITHDRAW ({w_method})", 
-                    "amt": w_amt, 
-                    "info": w_info,
-                    "status": "SUBMITTED"
-                })
+                data.setdefault('tx', []).append({"date": now.strftime("%Y-%m-%d %H:%M"), "type": f"WITHDRAW ({w_method})", "amt": w_amt, "info": w_info, "status": "SUBMITTED"})
                 update_user(name, data)
-                st.success("Withdrawal Submitted!"); time.sleep(1); st.session_state.page = "main"; st.rerun()
-            else: st.error("Please provide account details.")
-        
+                st.success("Submitted!"); time.sleep(1); st.session_state.page = "main"; st.rerun()
         if st.button("⬅️ CANCEL"): st.session_state.page = "main"; st.rerun()
 
     # --- MAIN DASHBOARD ---
@@ -163,8 +157,7 @@ else:
         with c2:
             if data['wallet'] >= 1000:
                 if st.button("📤 WITHDRAW"): st.session_state.page = "wd"; st.rerun()
-            else:
-                st.button("📤 (Min ₱1,000)", disabled=True)
+            else: st.button("📤 (Min ₱1k)", disabled=True)
 
         st.markdown("<div class='section-header'>⏳ ACTIVE 24H CYCLES (5% ROI)</div>", unsafe_allow_html=True)
         if not data.get('inv'): st.write("No active cycles.")
@@ -172,11 +165,7 @@ else:
             for t in data['inv']:
                 end_t = datetime.fromisoformat(t['end'])
                 rem = end_t - now
-                start_str = t.get('start')
-                if start_str:
-                    prog = min((now - datetime.fromisoformat(start_str)).total_seconds() / (end_t - datetime.fromisoformat(start_str)).total_seconds(), 1.0)
-                    live_int = (t['amt'] * 0.05) * prog
-                else: live_int = 0.0
+                live_int = (t['amt'] * 0.05) * min((now - datetime.fromisoformat(t.get('start', t['end']))).total_seconds() / 86400, 1.0) if t.get('start') else 0.0
                 st.markdown(f"<div style='background:#1c1e24; padding:15px; border-radius:15px; border:1px solid #3a3d46; margin-bottom:10px;'><div style='display:flex; justify-content:space-between;'><span>Principal: ₱{t['amt']:,}</span><span style='color:#0dcf70;'>Accrued: +₱{live_int:,.2f}</span></div><div style='color:#0dcf70; font-size:1.8rem; font-weight:bold; text-align:center;'>{str(rem).split('.')[0]}</div></div>", unsafe_allow_html=True)
 
         st.markdown("<div class='section-header'>📜 TRANSACTION LOGS</div>", unsafe_allow_html=True)
@@ -199,6 +188,12 @@ if st.session_state.is_boss:
         for idx, tx in enumerate(u_info.get('tx', [])):
             if tx['status'] in ["SUBMITTED", "PENDING"]:
                 st.info(f"{tx['type']}: {u_name} | ₱{tx['amt']:,} | {tx['status']}")
+                
+                # --- SHOW RECEIPT TO ADMIN ---
+                if "receipt_path" in tx:
+                    if st.button(f"👁️ VIEW RECEIPT - {u_name}_{idx}"):
+                        st.image(tx['receipt_path'], caption=f"Deposit Receipt from {u_name}")
+                
                 if "info" in tx: st.write(f"📍 Send to: {tx['info']}")
                 
                 ca, cb = st.columns(2)
