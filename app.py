@@ -10,7 +10,6 @@ import pandas as pd
 if 'user' not in st.session_state: st.session_state.user = None
 if 'page' not in st.session_state: st.session_state.page = "main"
 if 'is_boss' not in st.session_state: st.session_state.is_boss = False
-if 'confirm_amt' not in st.session_state: st.session_state.confirm_amt = False
 
 if not os.path.exists("receipts"):
     os.makedirs("receipts")
@@ -35,7 +34,7 @@ def update_user(name, data):
         json.dump(reg, f, default=str)
     shutil.copy(REGISTRY_FILE, BACKUP_FILE)
 
-# --- 3. UI STYLING (Restored Dashboard Style) ---
+# --- 3. UI STYLING ---
 st.set_page_config(page_title="BPSM Official", layout="wide")
 st.markdown("""
     <style>
@@ -53,7 +52,7 @@ st.markdown("""
 
 # --- 4. ACCESS CONTROL ---
 if st.session_state.user is None and not st.session_state.is_boss:
-    st.markdown("<div style='background: linear-gradient(135deg, #0038a8 0%, #ce1126 100%); padding: 40px 20px; text-align: center;'><h1>BAGONG PILIPINAS<br>STOCK MARKET</h1><p>20% Weekly ROI</p></div>", unsafe_allow_html=True)
+    st.markdown("<div style='background: linear-gradient(135deg, #0038a8 0%, #ce1126 100%); padding: 40px 20px; text-align: center;'><h1>BAGONG PILIPINAS<br>STOCK MARKET</h1></div>", unsafe_allow_html=True)
     t1, t2 = st.tabs(["🔑 SIGN-IN", "📝 REGISTER"])
     with t1:
         ln = st.text_input("INVESTOR NAME", key="login_name").upper()
@@ -81,14 +80,14 @@ if st.session_state.user is None and not st.session_state.is_boss:
             if st.button("ENTER CONTROL PANEL"): st.session_state.is_boss = True; st.rerun()
     st.stop()
 
-# --- 5. INVESTOR PORTAL (Real-Time ROI Dashboard) ---
+# --- 5. INVESTOR PORTAL ---
 if st.session_state.user:
     name = st.session_state.user
     reg = load_registry()
     data = reg[name]
     now = datetime.now()
 
-    # ROI Payout Logic
+    # ROI Processor
     payout_triggered = False
     for i in data.get('inv', []):
         try:
@@ -124,12 +123,25 @@ if st.session_state.user:
             update_user(name, data); st.session_state.page = "main"; st.rerun()
         if st.button("⬅️ BACK"): st.session_state.page = "main"; st.rerun()
 
+    elif st.session_state.page == "reinvest":
+        st.markdown("<div class='section-header'>♻️ RE-INVEST</div>", unsafe_allow_html=True)
+        r_amt = st.number_input("Re-invest Amount", min_value=1000.0, max_value=max(1000.0, data['wallet']))
+        if st.button("START CYCLE"):
+            data['wallet'] -= r_amt
+            st_t = datetime.now()
+            data.setdefault('inv', []).append({"amt": r_amt, "start": st_t.isoformat(), "end": (st_t + timedelta(days=7)).isoformat()})
+            data.setdefault('tx', []).append({"date": st_t.strftime("%Y-%m-%d %H:%M"), "type": "RE-INVESTMENT", "amt": r_amt, "status": "SUCCESSFUL"})
+            update_user(name, data); st.session_state.page = "main"; st.rerun()
+        if st.button("⬅️ BACK"): st.session_state.page = "main"; st.rerun()
+
     else:
-        c1, c2 = st.columns(2)
+        c1, c2, c3 = st.columns(3)
         with c1: 
             if st.button("📥 DEPOSIT"): st.session_state.page = "dep"; st.rerun()
         with c2: 
             if st.button("📤 WITHDRAW"): st.session_state.page = "wd"; st.rerun()
+        with c3:
+            if st.button("♻️ RE-INVEST"): st.session_state.page = "reinvest"; st.rerun()
 
         # My Referrals
         st.markdown("<div class='section-header'>👥 MY REFERRALS</div>", unsafe_allow_html=True)
@@ -138,11 +150,12 @@ if st.session_state.user:
                 f_d = next((t['amt'] for t in u_i.get('tx', []) if t['type']=="DEPOSIT" and t['status']=="SUCCESSFUL_DEP"), 0)
                 st.write(f"👤 {u_n} | {'No Deposit' if f_d == 0 else f'First Deposit: ₱{f_d:,.1f}'}")
 
-        # RESTORED: REAL-TIME ACTIVE CYCLES
+        # Active Cycles (With PULL CAPITAL button)
         st.markdown("<div class='section-header'>⏳ ACTIVE CYCLES</div>", unsafe_allow_html=True)
         if not data.get('inv'): st.write("No active interest running.")
         else:
             for idx, t in enumerate(reversed(data['inv'])):
+                actual_idx = len(data['inv']) - 1 - idx
                 try:
                     start_t, end_t = datetime.fromisoformat(t['start']), datetime.fromisoformat(t['end'])
                     rem, elapsed = end_t - now, now - start_t
@@ -156,7 +169,19 @@ if st.session_state.user:
                         <div style='color:#0dcf70; font-size:1.8rem; font-weight:bold; text-align:center;'>{str(rem).split('.')[0]}</div>
                     </div>
                     """, unsafe_allow_html=True)
+                    
+                    is_unlocked = now >= end_t
+                    if st.button(f"PULL CAPITAL (₱{t['amt']:,})" if is_unlocked else "LOCKED", key=f"pull_{actual_idx}", disabled=not is_unlocked):
+                        data['wallet'] += t['amt']
+                        data['inv'].pop(actual_idx)
+                        data.setdefault('tx', []).append({"date": now.strftime("%Y-%m-%d %H:%M"), "type": "CAPITAL RECALL", "amt": t['amt'], "status": "SUCCESSFUL"})
+                        update_user(name, data); st.rerun()
                 except: continue
+
+        # RESTORED: TRANSACTION LOGS
+        st.markdown("<div class='section-header'>📜 HISTORY</div>", unsafe_allow_html=True)
+        for t in reversed(data.get('tx', [])):
+            st.write(f"{t['date']} | {t['type']} | ₱{t['amt']:,} | {t['status']}")
 
     if st.sidebar.button("LOGOUT"): st.session_state.user = None; st.rerun()
 
@@ -164,7 +189,6 @@ if st.session_state.user:
 elif st.session_state.is_boss:
     all_users = load_registry()
     st.markdown("### 👑 MASTER CONTROL")
-
     st.markdown("<div class='section-header'>📋 INVESTOR DATABASE</div>", unsafe_allow_html=True)
     db = [{"NAME": u, "PIN": i.get('pin'), "WALLET": f"₱{i.get('wallet',0):,.2f}", "REFERRER": i.get('ref_by','DIRECT')} for u,i in all_users.items()]
     st.table(pd.DataFrame(db))
@@ -184,4 +208,4 @@ elif st.session_state.is_boss:
                     update_user(u_name, all_users[u_name]); st.rerun()
     
     if st.button("EXIT ADMIN"): st.session_state.is_boss = False; st.rerun()
-        
+            
