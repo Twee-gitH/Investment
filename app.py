@@ -51,6 +51,7 @@ st.markdown("""
     .stButton>button { border-radius: 12px !important; height: 3.5rem !important; font-weight: bold !important; width: 100%; }
     .roi-text { color: #0dcf70; font-weight: bold; font-size: 1.2rem; }
     .time-label { color: #8c8f99; font-size: 0.85rem; }
+    .total-roi-label { color: #0dcf70; font-size: 0.9rem; font-weight: bold; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -170,6 +171,7 @@ elif st.session_state.user:
                     start_t, end_t = datetime.fromisoformat(t['start']), datetime.fromisoformat(t['end'])
                     rem, elapsed = end_t - now, now - start_t
                     running_roi = min(t['amt']*0.05, (t['amt']*0.05/1440)*(elapsed.total_seconds()/60))
+                    total_24h_roi = t['amt'] * 0.05
                     
                     st.markdown(f"""
                     <div style='background:#1c1e24; padding:15px; border-radius:15px; border:1px solid #3a3d46; margin-bottom:10px;'>
@@ -179,7 +181,8 @@ elif st.session_state.user:
                         </div>
                         <div style='margin-top:5px;'>
                             <span class='time-label'>Deposit Time: {start_t.strftime('%Y-%m-%d %I:%M %p')}</span><br>
-                            <span class='time-label'>Maturity Time: {end_t.strftime('%Y-%m-%d %I:%M %p')}</span>
+                            <span class='time-label'>Maturity Time: {end_t.strftime('%Y-%m-%d %I:%M %p')}</span><br>
+                            <span class='total-roi-label'>Total 24H ROI: ₱{total_24h_roi:,.2f}</span>
                         </div>
                         <div style='color:#0dcf70; font-size:1.8rem; font-weight:bold; text-align:center; margin-top:10px;'>{str(rem).split('.')[0]}</div>
                     </div>
@@ -225,4 +228,4 @@ if st.session_state.is_boss:
                     all_users[u_name]['tx'][idx]['status'] = "SUCCESSFUL_WD"
                     update_user(u_name, all_users[u_name]); st.rerun()
     if st.button("EXIT ADMIN"): st.session_state.is_boss = False; st.rerun()
-                
+                        
