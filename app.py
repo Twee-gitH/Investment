@@ -50,6 +50,7 @@ st.markdown("""
     .ticker-text { display: inline-block; white-space: nowrap; animation: ticker 25s linear infinite; font-weight: bold; }
     .stButton>button { border-radius: 12px !important; height: 3.5rem !important; font-weight: bold !important; width: 100%; }
     .roi-text { color: #0dcf70; font-weight: bold; font-size: 1.2rem; }
+    .time-label { color: #8c8f99; font-size: 0.85rem; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -163,7 +164,6 @@ elif st.session_state.user:
         st.markdown("<div class='section-header'>⏳ ACTIVE 24H CYCLES (5% ROI)</div>", unsafe_allow_html=True)
         if not data.get('inv'): st.write("No active interest running.")
         else:
-            # Reversed list so newest capital is first
             for idx, t in enumerate(reversed(data['inv'])):
                 actual_idx = len(data['inv']) - 1 - idx
                 try:
@@ -171,7 +171,19 @@ elif st.session_state.user:
                     rem, elapsed = end_t - now, now - start_t
                     running_roi = min(t['amt']*0.05, (t['amt']*0.05/1440)*(elapsed.total_seconds()/60))
                     
-                    st.markdown(f"<div style='background:#1c1e24; padding:15px; border-radius:15px; border:1px solid #3a3d46; margin-bottom:10px;'><div style='display:flex; justify-content:space-between;'><span>Capital: ₱{t['amt']:,}</span><span class='roi-text'>Real-time ROI: ₱{running_roi:,.2f}</span></div><div style='color:#0dcf70; font-size:1.8rem; font-weight:bold; text-align:center;'>{str(rem).split('.')[0]}</div></div>", unsafe_allow_html=True)
+                    st.markdown(f"""
+                    <div style='background:#1c1e24; padding:15px; border-radius:15px; border:1px solid #3a3d46; margin-bottom:10px;'>
+                        <div style='display:flex; justify-content:space-between;'>
+                            <span style='font-weight:bold; font-size:1.1rem;'>Capital: ₱{t['amt']:,}</span>
+                            <span class='roi-text'>Real-time ROI: ₱{running_roi:,.2f}</span>
+                        </div>
+                        <div style='margin-top:5px;'>
+                            <span class='time-label'>Deposit Time: {start_t.strftime('%Y-%m-%d %I:%M %p')}</span><br>
+                            <span class='time-label'>Maturity Time: {end_t.strftime('%Y-%m-%d %I:%M %p')}</span>
+                        </div>
+                        <div style='color:#0dcf70; font-size:1.8rem; font-weight:bold; text-align:center; margin-top:10px;'>{str(rem).split('.')[0]}</div>
+                    </div>
+                    """, unsafe_allow_html=True)
                     
                     if st.button(f"Pull Capital (₱{t['amt']:,})", key=f"pull_{actual_idx}"):
                         data['wallet'] += t['amt']
@@ -193,7 +205,6 @@ if st.session_state.is_boss:
     st.markdown("<div class='section-header'>📈 REAL-TIME INVESTOR ROI</div>", unsafe_allow_html=True)
     for u_name, u_info in all_users.items():
         if u_info.get('inv'):
-            # Also reversed here for admin visibility
             for inv in reversed(u_info['inv']):
                 if 'start' not in inv: continue
                 try:
