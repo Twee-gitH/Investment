@@ -46,16 +46,16 @@ st.markdown("""
     .ticker-text { display: inline-block; white-space: nowrap; animation: ticker 25s linear infinite; font-weight: bold; }
     .stButton>button { border-radius: 12px !important; height: 3.5rem !important; font-weight: bold !important; width: 100%; }
     
-    /* STATUS COLORS */
+    /* STATUS COLOR CLASSES */
     .status-yellow { color: #ffff00 !important; font-weight: bold; }
-    .status-blue { color: #00aaff !important; font-weight: bold; }
+    .status-blue { color: #0000ff !important; font-weight: bold; }
     .status-orange { color: #ffa500 !important; font-weight: bold; }
     .status-green { color: #00ff00 !important; font-weight: bold; }
     </style>
     """, unsafe_allow_html=True)
 
 # --- 4. ACCESS CONTROL ---
-if st.session_state.user is None:
+if st.session_state.user is None and not st.session_state.is_boss:
     st.markdown("<div style='background: linear-gradient(135deg, #0038a8 0%, #ce1126 100%); padding: 40px 20px; text-align: center;'><h1>BAGONG PILIPINAS<br>STOCK MARKET</h1><p>Automatic 24-Hour Payouts | 5% Daily ROI</p></div>", unsafe_allow_html=True)
     t1, t2 = st.tabs(["🔑 SIGN-IN", "📝 REGISTER"])
     with t1:
@@ -73,9 +73,18 @@ if st.session_state.user is None:
             if rn and len(rp) == 6:
                 update_user(rn, {"pin": rp, "wallet": 0.0, "inv": [], "tx": []})
                 st.success("Account Created!")
+    
+    # ADMIN ACCESS BOX (Restored to login screen)
+    st.divider()
+    with st.expander("MASTER ACCESS"):
+        key = st.text_input("Admin Key", type="password")
+        if st.button("ENTER CONTROL PANEL"):
+            if key == "Orange01!":
+                st.session_state.is_boss = True
+                st.rerun()
 
 # --- 5. INVESTOR PORTAL ---
-else:
+elif st.session_state.user:
     name = st.session_state.user
     reg = load_registry()
     data = reg[name]
@@ -106,8 +115,7 @@ else:
         st.markdown("<div class='section-header'>📥 DEPOSIT CAPITAL</div>", unsafe_allow_html=True)
         d_amt = st.number_input("Enter Amount (Min ₱1,000)", min_value=1000.0, step=100.0, disabled=st.session_state.confirm_amt)
         if not st.session_state.confirm_amt:
-            if st.button("CONFIRM AMOUNT"):
-                st.session_state.confirm_amt = True; st.rerun()
+            if st.button("CONFIRM AMOUNT"): st.session_state.confirm_amt = True; st.rerun()
         else:
             st.success(f"Amount Confirmed: ₱{d_amt:,.2f}")
             receipt = st.file_uploader("Upload GCash Receipt", type=['jpg', 'png', 'jpeg'])
@@ -159,22 +167,15 @@ else:
         st.markdown("<div class='section-header'>📜 TRANSACTION LOGS</div>", unsafe_allow_html=True)
         for t in reversed(data.get('tx', [])):
             s = t['status']
-            # FONT COLOR LOGIC
             if s == "PENDING_DEP": cls = "status-yellow"
             elif s == "SUCCESSFUL_DEP": cls = "status-blue"
             elif s == "PENDING_WD": cls = "status-orange"
             else: cls = "status-green"
-            
             st.markdown(f"**{t['date']}** | {t['type']} | ₱{t['amt']:,} | <span class='{cls}'>{s.replace('_', ' ')}</span>", unsafe_allow_html=True)
 
     if st.sidebar.button("LOGOUT"): st.session_state.user = None; st.session_state.page = "main"; st.rerun()
 
 # --- 6. BOSS PANEL ---
-st.divider()
-with st.expander("⚠️"):
-    if st.text_input("Admin Key", type="password") == "Orange01!":
-        if st.button("ACCESS MASTER CONTROL"): st.session_state.is_boss = True; st.rerun()
-
 if st.session_state.is_boss:
     all_users = load_registry()
     st.markdown("### 👑 MASTER CONTROL")
@@ -197,5 +198,4 @@ if st.session_state.is_boss:
                     update_user(u_name, all_users[u_name]); st.success("Updated!"); st.rerun()
     if st.button("EXIT ADMIN"): st.session_state.is_boss = False; st.rerun()
 
-time.sleep(1); st.rerun()
-                
+time.sleep(1)
