@@ -64,6 +64,9 @@ if st.session_state.user is None and not st.session_state.is_boss:
             if ln in reg and reg[ln].get('pin') == lp:
                 st.session_state.user = ln
                 st.rerun()
+            elif ln == "ADMIN" and lp == "000000": # Admin Shortcut
+                st.session_state.is_boss = True
+                st.rerun()
             else: st.error("Invalid Credentials")
     with t2:
         rn = st.text_input("FULL LEGAL NAME", key="reg_name").upper()
@@ -71,7 +74,8 @@ if st.session_state.user is None and not st.session_state.is_boss:
         referrer = st.text_input("REFERRER NAME (REQUIRED)", key="reg_ref").upper()
         if st.button("CREATE ACCOUNT"):
             reg = load_registry()
-            if not referrer or referrer not in reg: st.error("Valid Referrer required.")
+            if not referrer or (referrer != "DIRECT" and referrer not in reg): 
+                st.error("Valid Referrer required. (Type DIRECT if none)")
             elif rn in reg: st.error("Already registered.")
             elif rn and len(rp) == 6:
                 update_user(rn, {"pin": rp, "wallet": 0.0, "inv": [], "tx": [], "ref_by": referrer, "bonus_claimed": False})
@@ -90,7 +94,6 @@ if st.session_state.user:
     for i in data.get('inv', []):
         try:
             m_time = datetime.fromisoformat(i['end'])
-            # 1. Check if Matured to pay ROI (Only once per cycle)
             if now >= m_time and not i.get('roi_paid', False):
                 profit = i['amt'] * 0.20
                 data['wallet'] += profit
@@ -98,11 +101,10 @@ if st.session_state.user:
                 data.setdefault('tx', []).append({"date": now.strftime("%Y-%m-%d %H:%M"), "type": "WEEKLY ROI CREDIT", "amt": profit, "status": "SUCCESSFUL"})
                 data_changed = True
             
-            # 2. Check if 1-hour Grace Period expired for Auto-Renewal
             if now >= (m_time + timedelta(hours=1)):
                 i['start'] = now.isoformat()
                 i['end'] = (now + timedelta(days=7)).isoformat()
-                i['roi_paid'] = False # Reset for new cycle
+                i['roi_paid'] = False 
                 data.setdefault('tx', []).append({"date": now.strftime("%Y-%m-%d %H:%M"), "type": "AUTO-RENEWAL (7 DAYS)", "amt": i['amt'], "status": "SUCCESSFUL"})
                 data_changed = True
         except: continue
@@ -111,7 +113,7 @@ if st.session_state.user:
 
     st.markdown(f"<div class='user-box'><p style='color:#8c8f99;'>WITHDRAWABLE BALANCE</p><h1 class='balance-val'>₱{data['wallet']:,.2f}</h1><p style='color:#8c8f99;'>Account: {name}</p></div>", unsafe_allow_html=True)
 
-    # --- NAVIGATION PAGES ---
+    # --- NAVIGATION ---
     if st.session_state.page == "dep":
         st.markdown("<div class='section-header'>📥 DEPOSIT</div>", unsafe_allow_html=True)
         d_amt = st.number_input("Amount", min_value=1000.0)
@@ -159,37 +161,32 @@ if st.session_state.user:
         else:
             for idx, t in enumerate(reversed(data['inv'])):
                 actual_idx = len(data['inv']) - 1 - idx
-                try:
-                    start_t, end_t = datetime.fromisoformat(t['start']), datetime.fromisoformat(t['end'])
-                    exact_roi = t['amt'] * 0.20
-                    
-                    st.markdown(f"""
-                    <div style='background:#1c1e24; padding:15px; border-radius:15px; border:1px solid #3a3d46; margin-bottom:10px;'>
-                        <div class='meta-text'>📅 DEPOSIT: {start_t.strftime('%Y-%m-%d %I:%M %p')}</div>
-                        <div class='meta-text'>🏁 MATURITY: {end_t.strftime('%Y-%m-%d %I:%M %p')}</div>
-                        <div style='display:flex; justify-content:space-between; margin-top:5px;'>
-                            <span style='font-weight:bold;'>Capital: ₱{t['amt']:,}</span>
-                            <span class='roi-text'>TOTAL ROI: ₱{exact_roi:,.2f}</span>
-                        </div>
-                    </div>
-                    """, unsafe_allow_html=True)
-                    
-                    # Logic for Pull Out & 1-Hour Timer
-                    if now < end_t:
-                        rem = end_t - now
-                        st.button(f"LOCKED UNTIL MATURITY (⏳ {str(rem).split('.')[0]})", key=f"l_{actual_idx}", disabled=True)
-                    elif end_t <= now < (end_t + timedelta(hours=1)):
-                        grace_rem = (end_t + timedelta(hours=1)) - now
-                        st.markdown(f"<div class='timer-alert'>⚠️ 1-HOUR PULL-OUT TIMER: {str(grace_rem).split('.')[0]}</div>", unsafe_allow_html=True)
-                        if st.button(f"✅ PULL CAPITAL (₱{t['amt']:,})", key=f"pull_{actual_idx}"):
-                            data['wallet'] += t['amt']
-                            data['inv'].pop(actual_idx)
-                            data.setdefault('tx', []).append({"date": now.strftime("%Y-%m-%d %H:%M"), "type": "CAPITAL PULL-OUT", "amt": t['amt'], "status": "SUCCESSFUL"})
-                            update_user(name, data); st.rerun()
-                    else:
-                        st.write("Auto-renewing...")
+                start_t, end_t = datetime.fromisoformat(t['start']), datetime.fromisoformat(t['end'])
+                st.markdown(f"<div style='background:#1c1e24; padding:15px; border-radius:15px; border:1px solid #3a3d46; margin-bottom:10px;'><div class='meta-text'>📅 DEPOSIT: {start_t.strftime('%Y-%m-%d %I:%M %p')}</div><div class='meta-text'>🏁 MATURITY: {end_t.strftime('%Y-%m-%d %I:%M %p')}</div><div style='display:flex; justify-content:space-between; margin-top:5px;'><span style='font-weight:bold;'>Capital: ₱{t['amt']:,}</span><span class='roi-text'>TOTAL ROI: ₱{t['amt']*0.20:,.2f}</span></div></div>", unsafe_allow_html=True)
+                
+                if now < end_t:
+                    st.button(f"LOCKED (⏳ {str(end_t - now).split('.')[0]})", key=f"l_{actual_idx}", disabled=True)
+                elif end_t <= now < (end_t + timedelta(hours=1)):
+                    if st.button(f"✅ PULL CAPITAL (₱{t['amt']:,})", key=f"pull_{actual_idx}"):
+                        data['wallet'] += t['amt']
+                        data['inv'].pop(actual_idx)
+                        data.setdefault('tx', []).append({"date": now.strftime("%Y-%m-%d %H:%M"), "type": "CAPITAL PULL-OUT", "amt": t['amt'], "status": "SUCCESSFUL"})
+                        update_user(name, data); st.rerun()
 
-                except: continue
+        # --- RESTORED REFERRAL SECTION ---
+        st.markdown("<div class='section-header'>👥 MY REFERRALS</div>", unsafe_allow_html=True)
+        all_users = load_registry()
+        # Find anyone who has this user's name as their 'ref_by'
+        my_referrals = [{"INVITEE": u, "CAPITAL": sum([i['amt'] for i in info.get('inv', [])])} 
+                        for u, info in all_users.items() if info.get('ref_by') == name]
+        
+        if my_referrals:
+            ref_df = pd.DataFrame(my_referrals)
+            st.table(ref_df)
+            total_ref_cap = sum([r['CAPITAL'] for r in my_referrals])
+            st.write(f"**Commission Earned (5%):** ₱{total_ref_cap * 0.05:,.2f}")
+        else:
+            st.info("No successful referrals yet.")
 
         # History
         st.markdown("<div class='section-header'>📜 HISTORY</div>", unsafe_allow_html=True)
@@ -221,4 +218,4 @@ elif st.session_state.is_boss:
                     update_user(u_name, all_users[u_name]); st.rerun()
     
     if st.button("EXIT ADMIN"): st.session_state.is_boss = False; st.rerun()
-            
+    
