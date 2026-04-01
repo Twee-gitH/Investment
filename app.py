@@ -87,14 +87,35 @@ if st.session_state.user:
 
     # --- ACTION BUTTONS ---
     c1, c2, c3 = st.columns(3)
-    with c1:
-        with st.expander("📥 DEPOSIT"):
-            d_amt = st.number_input("Amount", 1000, step=500, key="d_val")
-            file = st.file_uploader("Upload Receipt", key="d_file")
-            if st.button("CONFIRM DEPOSIT"):
-                if file:
-                    data.setdefault('tx', []).append({"type": "DEP", "amt": d_amt, "status": "PENDING", "receipt": file.name, "date": now.strftime("%Y-%m-%d %I:%M %p")})
-                    update_user(name, data); st.success("Sent!"); st.rerun()
+    
+        # --- DEPOSIT CAPITAL BLOCK ---
+    with st.expander("📥 DEPOSIT", expanded=True):
+        d_amt = st.number_input("Amount (Min 1000)", 1000, step=500, key="dep_amt_input")
+        file = st.file_uploader("Upload Receipt", type=['jpg','png','jpeg'], key="dep_file_reg")
+        
+        if file is not None:
+            # The button only appears/highlights once the file is detected
+            st.markdown('<style>.stButton>button { background-color: #00ff88 !important; color: black !important; font-weight: bold; }</style>', unsafe_allow_html=True)
+            if st.button("CONFIRM DEPOSIT", key="confirm_dep_btn"):
+                # Fix for NameError: Ensure 'tx' list exists before appending
+                if 'tx' not in data: 
+                    data['tx'] = []
+                
+                # Record transaction with date and time stated
+                data['tx'].append({
+                    "type": "DEP",
+                    "amt": d_amt,
+                    "status": "PENDING",
+                    "receipt": file.name,
+                    "date": datetime.now().strftime("%Y-%m-%d %I:%M %p")
+                })
+                update_user(name, data)
+                st.success(f"Deposit of ₱{d_amt:,} sent to Admin!")
+                st.rerun()
+        else:
+            # Placeholder button that is greyed out/inactive until file is uploaded
+            st.button("UPLOAD RECEIPT TO CONFIRM", disabled=True)
+            )
     with c2:
         with st.expander("💸 WITHDRAW"):
             w_amt = st.number_input("Amount", 100.0, float(data['wallet']) if data['wallet'] > 100 else 100.0, key="w_val")
