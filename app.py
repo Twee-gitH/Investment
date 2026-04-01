@@ -116,6 +116,21 @@ if st.session_state.user is None and not st.session_state.is_boss:
                 })
                 st.success("✅ ACCOUNT CREATED SUCCESSFULLY!"); time.sleep(1.5); st.rerun()
     st.stop()
+        # ... (rest of your registration logic) ...
+    
+    st.markdown("---") # Visual separator
+    with st.expander("🔐 SYSTEM ADMINISTRATION"):
+        admin_pin = st.text_input("ADMIN ACCESS PIN", type="password")
+        if st.button("LOG IN AS BOSS"):
+            # Replace "000000" with your preferred master pin
+            if admin_pin == "000000": 
+                st.session_state.is_boss = True
+                st.rerun()
+            else:
+                st.error("UNAUTHORIZED ACCESS")
+
+    st.stop()
+    
     
     
     
