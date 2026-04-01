@@ -115,27 +115,94 @@ if st.session_state.user is None and not st.session_state.is_boss:
 
     st.markdown("<div style='background: linear-gradient(135deg, #0038a8 0%, #ce1126 100%); padding: 40px 20px; text-align: center;'><h1>BAGONG PILIPINAS<br>STOCK MARKET</h1></div>", unsafe_allow_html=True)
     t1, t2 = st.tabs(["🔑 SIGN-IN", "📝 REGISTER"])
+# --- 3. UI STYLING ---
+st.set_page_config(page_title="BPSM Official", layout="wide")
+
+st.markdown("""
+    <style>
+    /* Global rule for all inputs to look like CAPS LOCK */
+    input {
+        text-transform: uppercase;
+    }
+    
+    /* EXCEPTION: Password fields remain normal (for small letters) */
+    input[type="password"] {
+        text-transform: none !important;
+    }
+    
+    input::placeholder {
+        text-transform: none;
+    }
+
+    .user-box {
+        background-color: #1c1e24;
+        padding: 20px;
+        border-radius: 15px;
+        border: 1px solid #3a3d46;
+        text-align: center;
+        margin-bottom: 20px;
+    }
+    .balance-val {
+        color: #00ff88;
+        font-size: 36px;
+        margin: 0;
+    }
+    .meta-text {
+        color: #8c8f99;
+        font-size: 12px;
+    }
+    .roi-text {
+        color: #00ff88;
+        font-weight: bold;
+    }
+    .section-header {
+        background: #252830;
+        padding: 10px;
+        border-radius: 5px;
+        margin-top: 20px;
+        margin-bottom: 10px;
+        font-weight: bold;
+        border-left: 5px solid #ce1126;
+    }
+    .timer-alert {
+        color: #ff4b4b;
+        font-weight: bold;
+        text-align: center;
+        padding: 5px;
+        border: 1px solid #ff4b4b;
+        border-radius: 5px;
+        margin-bottom: 5px;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+
+# --- 4. ACCESS CONTROL ---
+if st.session_state.user is None and not st.session_state.is_boss:
+    st.markdown("<div style='background: linear-gradient(135deg, #0038a8 0%, #ce1126 100%); padding: 40px 20px; text-align: center;'><h1>BAGONG PILIPINAS<br>STOCK MARKET</h1></div>", unsafe_allow_html=True)
+    
+    t1, t2 = st.tabs(["🔑 SIGN-IN", "📝 REGISTER"])
     
     with t1:
         ln = st.text_input("INVESTOR NAME", key="login_name").upper()
-        lp = st.text_input("SECURE PIN", type="password", max_chars=6, key="login_pin")
+        lp = st.text_input("SECURE PIN", type="password", max_chars=16, key="login_pin")
         if st.button("VERIFY & ACCESS"):
             reg = load_registry()
-            # Note: lp (the pin) is checked exactly as typed (case-sensitive)
             if ln in reg and reg[ln].get('pin') == lp:
                 st.session_state.user = ln
                 st.rerun()
-            else: st.error("❌ INVALID CREDENTIALS")
+            else: 
+                st.error("❌ INVALID CREDENTIALS")
             
     with t2:
         st.warning("⚠️ **IMPORTANT:** PLEASE INPUT ONLY YOUR LEGAL FIRST NAME AND LAST NAME.")
         rn = st.text_input("FULL LEGAL NAME", key="reg_name").upper()
         
-        st.info("ℹ️ **PIN SECURITY:** 6-DIGIT PIN MUST BE NUMBERS ONLY.")
-        rp1 = st.text_input("CREATE 6-DIGIT PIN", type="password", max_chars=6, key="reg_pin1")
-        rp2 = st.text_input("CONFIRM 6-DIGIT PIN", type="password", max_chars=6, key="reg_pin2")
+        st.info("ℹ️ **PIN SECURITY:** PIN IS CASE-SENSITIVE.")
+        rp1 = st.text_input("CREATE PIN", type="password", max_chars=16, key="reg_pin1")
+        rp2 = st.text_input("CONFIRM PIN", type="password", max_chars=16, key="reg_pin2")
         
-        st.error("🚨 **REFERRAL RULE:** ONLY ACTIVE INVESTORS ARE ALLOWED TO REFER NEW USERS.")
+        st.error("🚨 **REFERRAL RULE:** ONLY ACTIVE INVESTORS ARE ALLOWED TO REFER.")
         referrer = st.text_input("REFERRER NAME", key="reg_ref").upper()
         
         if st.button("CREATE ACCOUNT"):
@@ -145,16 +212,12 @@ if st.session_state.user is None and not st.session_state.is_boss:
             
             if len(name_parts) < 2:
                 st.error("❌ PLEASE INPUT BOTH YOUR LEGAL FIRST NAME AND LAST NAME.")
-            elif not rp1.isdigit():
-                st.error("❌ PIN ERROR: NUMBERS ONLY!")
             elif rp1 != rp2:
                 st.error("❌ PINS DO NOT MATCH.")
-            elif len(rp1) != 6:
-                st.error("❌ PIN MUST BE EXACTLY 6 DIGITS.")
+            elif len(rp1) < 4:
+                st.error("❌ PIN MUST BE AT LEAST 4 CHARACTERS.")
             elif not referrer or referrer not in reg:
                 st.error("❌ VALID REFERRER REQUIRED.")
-            elif not reg[referrer].get('inv'):
-                st.error(f"❌ {referrer} IS NOT AN ACTIVE INVESTOR.")
             elif final_name in reg:
                 st.error("❌ THIS LEGAL NAME IS ALREADY REGISTERED.")
             else:
@@ -164,13 +227,12 @@ if st.session_state.user is None and not st.session_state.is_boss:
                 })
                 st.success("✅ ACCOUNT CREATED!"); time.sleep(1.5); st.rerun()
 
-    # --- 🔐 SYSTEM ADMINISTRATION (ADMIN BUTTON) ---
+    # --- ADMIN ACCESS SECTION ---
     st.markdown("---")
     with st.expander("🔐 SYSTEM ADMINISTRATION"):
-        # The key="boss_pin" ensures this input is separate from the others
-        admin_pin = st.text_input("ADMIN ACCESS PIN", type="password", key="boss_pin")
+        admin_pin = st.text_input("ADMIN ACCESS PIN", type="password", key="boss_pin_input")
         if st.button("LOG IN AS BOSS"):
-            # Put your specific admin password here (case sensitive!)
+            # Set your admin password here (case sensitive)
             if admin_pin == "Admin123": 
                 st.session_state.is_boss = True
                 st.rerun()
@@ -178,7 +240,7 @@ if st.session_state.user is None and not st.session_state.is_boss:
                 st.error("❌ UNAUTHORIZED")
 
     st.stop()
-    )
+            
 
     # --- ADMIN ACCESS SECTION ---
     # This stays visible because it is BEFORE the st.stop()
