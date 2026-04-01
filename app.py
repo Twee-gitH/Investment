@@ -205,6 +205,52 @@ if st.session_state.user:
                     <b>Capital: ₱{f_dep:,.1f}</b><br>
                     <span class='roi-text'>Accumulated ROI: ₱{comm:,.4f}</span><br>
                     <span class='meta-label'>Total to Receive: ₱{comm:,.2f}</span><br><br>
+    # --- START OF ACTIVE CYCLES (cite: 8823.jpg) ---
+    st.markdown("<div class='section-header'>⌛ ACTIVE CYCLES</div>", unsafe_allow_html=True)
+    inv_list = data.get('inv', [])
+    for idx, t in enumerate(reversed(inv_list)):
+        actual_idx = len(inv_list) - 1 - idx
+        st_t, et_t = datetime.fromisoformat(t['start']), datetime.fromisoformat(t['end'])
+        grace_end = et_t + timedelta(hours=1)
+        
+        st.markdown(f"""
+            <div class='user-box'>
+                <b>Capital: ₱{t['amt']:,}</b><br>
+                <span class='roi-text'>Accumulated ROI: ₱{t.get('accumulated_roi', 0):,.4f}</span><br>
+                <span class='meta-label'>Total to Receive: ₱{t['amt']*0.20:,.2f}</span><br><br>
+                <b>Approved:</b> {st_t.strftime('%Y-%m-%d %I:%M %p')}<br>
+                <b>Maturity:</b> {et_t.strftime('%Y-%m-%d %I:%M %p')}<br>
+                <b style='color:#ff4b4b;'>⌛ TIME REMAINING: {str(et_t - now).split('.')[0] if now < et_t else 'MATURED'}</b>
+            </div>
+        """, unsafe_allow_html=True)
+
+        btn_label = f"AVAILABLE TO PULL OUT CAPITAL FROM {et_t.strftime('%I:%M %p')} TO {grace_end.strftime('%I:%M %p')}"
+        if et_t <= now < grace_end:
+            if st.button(f"✅ PULL CAPITAL (₱{t['amt']:,})", key=f"p_act_{actual_idx}"):
+                data['wallet'] += t['amt']; data['inv'].pop(actual_idx); update_user(name, data); st.rerun()
+        else:
+            st.button(btn_label, key=f"l_act_{actual_idx}", disabled=True)
+
+    # --- START OF REFERRAL COMMISSIONS (cite: 8824.jpg) ---
+    all_u = load_registry()
+    referrals = {u_n: u_i for u_n, u_i in all_u.items() if u_i.get('ref_by') == name}
+
+    for u_n, u_i in referrals.items():
+        # Get their 1st successful deposit
+        f_dep = next((tx['amt'] for tx in u_i.get('tx', []) if tx['status'] == "SUCCESSFUL_DEP"), 0)
+        
+        if f_dep > 0:
+            comm = f_dep * 0.20
+            b_status = data.get('bonus_status', {}).get(u_n, "AVAILABLE")
+            
+            # Header repeats for each referral block as seen in 8824.jpg
+            st.markdown("<div class='section-header'>👥 REFERRAL COMMISSIONS</div>", unsafe_allow_html=True)
+            
+            st.markdown(f"""
+                <div class='user-box'>
+                    <b>Capital: ₱{f_dep:,.1f}</b><br>
+                    <span class='roi-text'>Accumulated ROI: ₱{comm:,.4f}</span><br>
+                    <span class='meta-label'>Total to Receive: ₱{comm:,.2f}</span><br><br>
                     <b>Invitee:</b> {u_n}<br>
                     <b>Registered:</b> {u_i.get('reg_date', 'N/A')}<br>
                     <b style='color:#ff4b4b;'>⌛ STATUS: {b_status}</b>
@@ -212,20 +258,17 @@ if st.session_state.user:
             """, unsafe_allow_html=True)
 
             if b_status == "AVAILABLE":
-                # ADDED 'ref_' TO THE KEY BELOW
-                if st.button(f"REQUEST BONUS FOR {u_n}", key=f"ref_req_{u_n}"):
-                    data.setdefault('bonus_status', {})[u_n] = "REQUESTED"
-                    update_user(name, data)
-                    st.rerun()
+                if st.button(f"REQUEST BONUS FOR {u_n}", key=f"req_ref_{u_n}"):
+                    data.setdefault('bonus_status', {})[u_n] = "REQUESTED"; update_user(name, data); st.rerun()
             else:
-                # ADDED 'ref_' TO THE KEY BELOW
-                st.button(f"BONUS {b_status}", key=f"ref_lock_{u_n}", disabled=True)
-                
+                st.button(f"BONUS {b_status}", key=f"lock_ref_{u_n}", disabled=True)
 
-    # --- THE LOGOUT BUTTON FOLLOWS ---
-    if st.button("LOGOUT"):
+    # --- LOGOUT BUTTON (OUTSIDE ALL LOOPS TO PREVENT CRASH) ---
+    st.write("---")
+    if st.button("LOGOUT", key="main_logout_btn"): 
         st.session_state.user = None
         st.rerun()
+            
         
 
 # --- 5. ADMIN OVERVIEW ---
