@@ -6,13 +6,13 @@ from datetime import datetime, timedelta
 import time
 import pandas as pd
 
-# --- 1. SESSION INITIALIZER ---
+# --- 1. INITIAL SETUP ---
 if 'user' not in st.session_state: st.session_state.user = None
 if 'page' not in st.session_state: st.session_state.page = "main"
 if 'is_boss' not in st.session_state: st.session_state.is_boss = False
 
-# --- 2. DATA ENGINE ---
 REGISTRY_FILE = "bpsm_registry.json"
+
 def load_registry():
     if os.path.exists(REGISTRY_FILE):
         with open(REGISTRY_FILE, "r") as f: return json.load(f)
@@ -21,39 +21,25 @@ def load_registry():
 def update_user(name, data):
     reg = load_registry()
     reg[name] = data
-    with open(REGISTRY_FILE, "w") as f: json.dump(reg, f)
+    with open(REGISTRY_FILE, "w") as f: json.dump(reg, f, default=str)
 
-# --- 3. THE AGGRESSIVE CSS FIX ---
+# --- 2. THE CSS FIX (Forces small letters in PIN fields) ---
 st.set_page_config(page_title="BPSM Official", layout="wide")
-
 st.markdown("""
     <style>
-    /* 1. Force general text to look like Caps */
-    input[type="text"] { 
-        text-transform: uppercase !important; 
-    }
-    
-    /* 2. FORCE PASSWORDS TO REMAIN EXACTLY AS TYPED (Small or Big) */
-    /* This overrides every other rule in the browser */
-    input[type="password"] {
-        text-transform: none !important;
-        -webkit-text-transform: none !important;
-        text-transform: lowercase !important; /* Only looks lowercase, but accepts whatever you type */
-        font-family: monospace !important;
-    }
-    
-    /* 3. Visual cleanup */
-    .user-box { background-color: #1c1e24; padding: 20px; border-radius: 15px; border: 1px solid #3a3d46; text-align: center; margin-bottom: 20px; }
-    .balance-val { color: #00ff88; font-size: 36px; margin: 0; }
+    input[type="text"] { text-transform: uppercase !important; }
+    input[type="password"] { text-transform: none !important; -webkit-text-transform: none !important; }
+    .user-box { background-color: #1c1e24; padding: 20px; border-radius: 15px; border: 1px solid #3a3d46; margin-bottom: 20px; }
+    .balance-val { color: #00ff88; font-size: 36px; margin: 0; text-align: center; }
     .section-header { background: #252830; padding: 10px; border-radius: 5px; margin-top: 20px; margin-bottom: 10px; font-weight: bold; border-left: 5px solid #ce1126; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- 4. ACCESS CONTROL ---
+# --- 3. ACCESS CONTROL ---
 if st.session_state.user is None and not st.session_state.is_boss:
-    st.markdown("<div style='background: linear-gradient(135deg, #0038a8 0%, #ce1126 100%); padding: 40px 20px; text-align: center;'><h1>BAGONG PILIPINAS<br>STOCK MARKET</h1></div>", unsafe_allow_html=True)
-    
+    st.markdown("<h1 style='text-align:center;'>BAGONG PILIPINAS<br>STOCK MARKET</h1>", unsafe_allow_html=True)
     t1, t2 = st.tabs(["🔑 SIGN-IN", "📝 REGISTER"])
+    
     with t1:
         ln = st.text_input("INVESTOR NAME").upper()
         lp = st.text_input("SECURE PIN", type="password")
@@ -63,99 +49,108 @@ if st.session_state.user is None and not st.session_state.is_boss:
                 st.session_state.user = ln
                 st.rerun()
             else: st.error("❌ INVALID CREDENTIALS")
-            
-    with t2:
-        rn = st.text_input("FULL LEGAL NAME", key="reg_name").upper()
-        rp1 = st.text_input("CREATE PIN", type="password", key="p1")
-        rp2 = st.text_input("CONFIRM PIN", type="password", key="p2")
-        referrer = st.text_input("REFERRER NAME").upper()
-        if st.button("CREATE ACCOUNT"):
-            reg = load_registry()
-            if rp1 != rp2: st.error("❌ PIN MISMATCH")
-            else:
-                update_user(rn, {"pin": rp1, "wallet": 0.0, "inv": [], "tx": [], "ref_by": referrer, "claimed_refs": []})
-                st.success("✅ REGISTERED!"); time.sleep(1); st.rerun()
 
-    # --- THE ADMIN BOX (WITH DEBUGGER) ---
-    with st.expander("🔐 ADMIN ACCESS"):
-        ap = st.text_input("ENTER ADMIN PIN", type="password", key="admin_field")
-        
-        # This line is for YOU to see what the computer is reading
-        if ap:
-            st.write(f"System reads this many characters: {len(ap)}")
-            
-        if st.button("LOGIN AS BOSS"):
-            # I am making the check CASE-INSENSITIVE for the word 'Admin' 
-            # just to make sure you get in!
-            if ap.lower() == "admin123": 
+    with t2:
+        rn = st.text_input("FULL NAME", key="r1").upper()
+        rp = st.text_input("PIN", type="password", key="r2")
+        ref = st.text_input("REFERRER", key="r3").upper()
+        if st.button("CREATE"):
+            update_user(rn, {"pin": rp, "wallet": 0.0, "inv": [], "tx": [], "ref_by": ref, "claimed_refs": []})
+            st.success("DONE!"); time.sleep(1); st.rerun()
+
+    with st.expander("🔐 ADMIN"):
+        ap = st.text_input("ADMIN PIN", type="password", key="admin_key")
+        if st.button("LOG IN AS BOSS"):
+            if ap.lower() == "admin123": # Case-insensitive to stop lockouts
                 st.session_state.is_boss = True
                 st.rerun()
-            else:
-                st.error(f"❌ DENIED. You typed: {ap}") # Shows you exactly what failed
     st.stop()
 
-# --- 5. DASHBOARD (KEEPING ALL YOUR FEATURES) ---
+# --- 4. INVESTOR DASHBOARD ---
 if st.session_state.user:
     name = st.session_state.user
     reg = load_registry()
     data = reg[name]
     now = datetime.now()
 
-    # ROI Logic & Auto-Reinvest (7 Days + 1 Hour Window)
+    # --- LIVE ROI & AUTO-REINVEST ENGINE ---
     changed = False
-    rate = (0.20 / 7) / 1440
+    MINUTE_RATE = (0.20 / 7) / 1440 
     for i in data.get('inv', []):
-        start_t = datetime.fromisoformat(i['start'])
-        end_t = datetime.fromisoformat(i['end'])
-        grace_end = end_t + timedelta(hours=1)
+        st_t, et_t = datetime.fromisoformat(i['start']), datetime.fromisoformat(i['end'])
+        grace_t = et_t + timedelta(hours=1)
         
-        # Accumulate
-        mins = (min(now, end_t) - start_t).total_seconds() / 60
-        i['live_roi'] = i['amt'] * (mins * rate)
+        # Calculate Live ROI
+        mins = (min(now, et_t) - st_t).total_seconds() / 60
+        i['live_roi'] = i['amt'] * (mins * MINUTE_RATE)
 
-        if now >= end_t and not i.get('roi_paid', False):
+        # Maturity Payout
+        if now >= et_t and not i.get('roi_paid', False):
             data['wallet'] += i['amt'] * 0.20
             i['roi_paid'] = True
             changed = True
         
-        if now >= grace_end:
+        # Auto-Reinvest
+        if now >= grace_t:
             i.update({"start": now.isoformat(), "end": (now+timedelta(days=7)).isoformat(), "roi_paid": False})
             changed = True
     if changed: update_user(name, data); st.rerun()
 
-    st.markdown(f"<div class='user-box'><h1 class='balance-val'>₱{data['wallet']:,.2f}</h1><p>{name}</p></div>", unsafe_allow_html=True)
-    
-    # Active Cycles
-    st.markdown("<div class='section-header'>⏳ ACTIVE CYCLES</div>", unsafe_allow_html=True)
-    for idx, t in enumerate(data.get('inv', [])):
-        et = datetime.fromisoformat(t['end'])
-        ge = et + timedelta(hours=1)
-        st.write(f"Capital: ₱{t['amt']:,} | ROI: ₱{t.get('live_roi',0):,.2f}")
-        btn_txt = f"PULL OUT WINDOW: {et.strftime('%I:%M%p')} - {ge.strftime('%I:%M%p')}"
-        if et <= now < ge:
-            if st.button(f"✅ PULL ₱{t['amt']:,}", key=f"p{idx}"):
-                data['wallet'] += t['amt']; data['inv'].pop(idx)
-                update_user(name, data); st.rerun()
-        else:
-            st.button(btn_txt, disabled=True, key=f"d{idx}")
+    st.markdown(f"<div class='user-box'><p style='text-align:center;'>BALANCE</p><h1 class='balance-val'>₱{data['wallet']:,.2f}</h1></div>", unsafe_allow_html=True)
 
-    # Referrals & History
-    st.markdown("<div class='section-header'>👥 REFERRALS</div>", unsafe_allow_html=True)
-    refs = [{"NAME": k, "COMM": f"₱{v['tx'][0]['amt']*0.2:.2f}" if v.get('tx') else "0"} for k,v in load_registry().items() if v.get('ref_by')==name]
-    if refs: st.table(pd.DataFrame(refs))
-    
+    if st.session_state.page == "main":
+        st.markdown("<div class='section-header'>⏳ ACTIVE CYCLES</div>", unsafe_allow_html=True)
+        for idx, t in enumerate(data.get('inv', [])):
+            et_t = datetime.fromisoformat(t['end'])
+            gr_t = et_t + timedelta(hours=1)
+            
+            st.markdown(f"""
+                <div class='user-box' style='border-left:5px solid #00ff88; padding:15px;'>
+                    <b>CAPITAL: ₱{t['amt']:,}</b><br>
+                    <span style='color:#00ff88;'>📈 LIVE ROI: ₱{t.get('live_roi',0):,.4f}</span><br>
+                    <span style='font-size:12px; color:#8c8f99;'>TOTAL EXPECTED: ₱{t['amt']*0.2:.2f}</span>
+                </div>
+            """, unsafe_allow_html=True)
+
+            btn_txt = f"PULL OUT WINDOW: {et_t.strftime('%I:%M%p')} - {gr_t.strftime('%I:%M%p')}"
+            if et_t <= now < gr_t:
+                if st.button(f"✅ PULL CAPITAL (₱{t['amt']:,})", key=f"p{idx}"):
+                    data['wallet'] += t['amt']; data['inv'].pop(idx)
+                    update_user(name, data); st.rerun()
+            else:
+                st.button(btn_txt, disabled=True, key=f"d{idx}")
+
+        # --- REFERRALS & HISTORY ---
+        st.markdown("<div class='section-header'>👥 REFERRALS</div>", unsafe_allow_html=True)
+        all_reg = load_registry()
+        refs = [{"INVITEE": k, "1st DEP": f"₱{v['tx'][0]['amt']:,}" if v.get('tx') else "0"} for k,v in all_reg.items() if v.get('ref_by') == name]
+        if refs: st.table(pd.DataFrame(refs))
+
+        st.markdown("<div class='section-header'>📜 HISTORY</div>", unsafe_allow_html=True)
+        for tx in reversed(data.get('tx', [])):
+            st.write(f"{tx['date']} | {tx['type']} | ₱{tx['amt']:,} | {tx['status']}")
+
     if st.button("LOGOUT"): st.session_state.user = None; st.rerun()
 
-# --- 6. BOSS PANEL ---
+# --- 5. BOSS PANEL (THE CRITICAL FIX) ---
 elif st.session_state.is_boss:
     st.title("👑 BOSS PANEL")
-    all_u = load_registry()
-    for u, d in all_u.items():
-        for tx in d.get('tx', []):
+    all_users = load_registry()
+    for u_name, u_info in all_users.items():
+        for idx, tx in enumerate(u_info.get('tx', [])):
             if tx['status'] == "PENDING_DEP":
-                if st.button(f"Approve {u} - ₱{tx['amt']}"):
+                if st.button(f"Approve ₱{tx['amt']} for {u_name}"):
+                    # FIX: This records the exact start and end time for the timer!
+                    st_time = datetime.now()
+                    et_time = st_time + timedelta(days=7)
+                    
                     tx['status'] = "SUCCESSFUL_DEP"
-                    d.setdefault('inv', []).append({"amt": tx['amt'], "start": datetime.now().isoformat(), "end": (datetime.now()+timedelta(days=7)).isoformat(), "roi_paid": False})
-                    update_user(u, d); st.rerun()
-    if st.button("EXIT"): st.session_state.is_boss = False; st.rerun()
+                    u_info.setdefault('inv', []).append({
+                        "amt": tx['amt'], 
+                        "start": st_time.isoformat(), 
+                        "end": et_time.isoformat(), 
+                        "roi_paid": False
+                    })
+                    update_user(u_name, u_info); st.rerun()
+    if st.button("EXIT BOSS"): st.session_state.is_boss = False; st.rerun()
                 
