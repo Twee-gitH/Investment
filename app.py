@@ -65,29 +65,38 @@ if st.session_state.user is None and not st.session_state.is_boss:
         if st.text_input("ADMIN PIN", type="password") == "0102030405":
             if st.button("ENTER BOSS"): st.session_state.is_boss = True; st.rerun()
     st.stop()
-
-# --- 4. INVESTOR DASHBOARD ---
+# --- REPLACE YOUR ENTIRE 'if st.session_state.user:' SECTION WITH THIS ---
 if st.session_state.user:
     name = st.session_state.user
     data = load_registry().get(name)
     now = datetime.now()
 
-    # ROI ENGINE (LOCKED)
+    # 1. ROI CALCULATION ENGINE
     MINUTE_RATE = (0.20 / 7) / 1440 
+    changed = False
     for i in data.get('inv', []):
         st_t, et_t = datetime.fromisoformat(i['start']), datetime.fromisoformat(i['end'])
         calc_now = min(now, et_t)
         i['accumulated_roi'] = max(0, i['amt'] * (((calc_now - st_t).total_seconds() / 60) * MINUTE_RATE))
         if now >= et_t and not i.get('roi_paid', False):
-            data['wallet'] += (i['amt'] * 0.20); i['roi_paid'] = True; update_user(name, data)
+            data['wallet'] += (i['amt'] * 0.20); i['roi_paid'] = True; changed = True
         if now >= (et_t + timedelta(hours=1)):
-            i.update({"start": now.isoformat(), "end": (now + timedelta(days=7)).isoformat(), "roi_paid": False}); update_user(name, data)
+            i.update({"start": now.isoformat(), "end": (now + timedelta(days=7)).isoformat(), "roi_paid": False}); changed = True
+    if changed: update_user(name, data); st.rerun()
 
-    # HEADER AREA
-    st.markdown(f'<div class="balance-card"><small>WITHDRAWABLE BALANCE</small><p class="balance-val">₱{data["wallet"]:,.2f}</p></div>', unsafe_allow_html=True)
-    st.markdown(f'<div class="news-box"><small style="color:#ce1126;">MARKET NEWS:</small> {random.choice(NEWS_HEADLINES)}</div>', unsafe_allow_html=True)
+    # 2. WITHDRAWABLE BALANCE (LOCKED STYLE)
+    st.markdown(f"""
+        <div class="balance-card">
+            <p class="balance-label">Withdrawable Balance</p>
+            <p class="balance-val">₱{data['wallet']:,.2f}</p>
+        </div>
+        <div class="news-box">
+            <small style="color:#ce1126; font-weight:bold;">LIVE MARKET UPDATE:</small><br>
+            <span style="font-size:14px; color:#fff;">📈 PSEi index climbs as blue-chip stocks rally.</span>
+        </div>
+    """, unsafe_allow_html=True)
 
-    # ACTIVE CYCLES (NEWEST FIRST)
+    # 3. ACTIVE CYCLES SECTION (MATCHES 8820.jpg & 8823.jpg)
     st.markdown("<div class='section-header'>⏳ ACTIVE CYCLES</div>", unsafe_allow_html=True)
     inv_list = data.get('inv', [])
     for idx, t in enumerate(reversed(inv_list)):
@@ -99,7 +108,7 @@ if st.session_state.user:
             <div class='user-box'>
                 <b>Capital: ₱{t['amt']:,}</b><br>
                 <span class='roi-text'>Accumulated ROI: ₱{t.get('accumulated_roi', 0):,.4f}</span><br>
-                <span style='color:#8c8f99; font-size:12px;'>Total to Receive: ₱{t['amt']*0.20:,.2f}</span><br><br>
+                <span class='meta-label'>Total to Receive: ₱{t['amt']*0.20:,.2f}</span><br><br>
                 <b>Approved:</b> {st_t.strftime('%Y-%m-%d %I:%M %p')}<br>
                 <b>Maturity:</b> {et_t.strftime('%Y-%m-%d %I:%M %p')}<br>
                 <b style='color:#ff4b4b;'>⏳ TIME REMAINING: {str(et_t - now).split('.')[0] if now < et_t else 'MATURED'}</b>
@@ -113,48 +122,40 @@ if st.session_state.user:
         else:
             st.button(btn_label, key=f"lock_{actual_idx}", disabled=True)
 
-        st.markdown("<div class='section-header'>👥 REFERRAL COMMISSIONS</div>", unsafe_allow_html=True)
-    all_users = load_registry()
-    
-    # 1. Get all users who were referred by the current logged-in user
-    referrals = {u_n: u_i for u_n, u_i in all_users.items() if u_i.get('ref_by') == name}
+    # 4. REFERRAL COMMISSIONS SECTION (MATCHES 8824.jpg)
+    all_u = load_registry()
+    referrals = {u_n: u_i for u_n, u_i in all_u.items() if u_i.get('ref_by') == name}
 
-    # 2. Display them (Sorted by newest registration date if available)
     for u_n, u_i in referrals.items():
-        # Retrieve the first successful deposit amount
-        first_dep = 0
-        for tx in u_i.get('tx', []):
-            if tx['status'] == "SUCCESSFUL_DEP":
-                first_dep = tx['amt']
-                break
-        
-        # Calculate 20% bonus
-        comm = first_dep * 0.20
-        # Check if the user has a registration date stored, otherwise show N/A
-        reg_date = u_i.get('reg_date', "N/A") 
-        b_status = data.get('bonus_status', {}).get(u_n, "AVAILABLE")
-        
-        st.markdown(f"""
-            <div style='background-color: #16181d; padding: 15px; border-radius: 8px; border: 1px solid #2d313a; margin-bottom: 10px;'>
-                <b style='color:#00ff88; font-size: 18px;'>{u_n}</b><br>
-                <span style='color:#8c8f99; font-size: 12px;'>Registered: {reg_date}</span><br>
-                <div style='margin-top: 8px;'>
-                    <span>1st Deposit: <b>₱{first_dep:,.2f}</b></span><br>
-                    <span>Your Bonus: <b style='color:#00ff88;'>₱{comm:,.2f}</b></span>
+        f_dep = next((tx['amt'] for tx in u_i.get('tx', []) if tx['status'] == "SUCCESSFUL_DEP"), 0)
+        if f_dep > 0:
+            comm = f_dep * 0.20
+            b_status = data.get('bonus_status', {}).get(u_n, "AVAILABLE")
+            
+            # Header repeats for each block as per 8824.jpg
+            st.markdown("<div class='section-header'>👥 REFERRAL COMMISSIONS</div>", unsafe_allow_html=True)
+            
+            st.markdown(f"""
+                <div class='user-box'>
+                    <b>Capital: ₱{f_dep:,.1f}</b><br>
+                    <span class='roi-text'>Accumulated ROI: ₱{comm:,.4f}</span><br>
+                    <span class='meta-label'>Total to Receive: ₱{comm:,.2f}</span><br><br>
+                    <b>Invitee:</b> {u_n}<br>
+                    <b>Registered:</b> {u_i.get('reg_date', 'N/A')}<br>
+                    <b style='color:#ff4b4b;'>⏳ STATUS: {b_status}</b>
                 </div>
-            </div>
-        """, unsafe_allow_html=True)
-        
-        # 3. Action Button
-        if comm > 0:
+            """, unsafe_allow_html=True)
+
             if b_status == "AVAILABLE":
-                if st.button(f"Request Bonus for {u_n}", key=f"req_{u_n}"):
-                    # Update local data
-                    if 'bonus_status' not in data: data['bonus_status'] = {}
-                    data['bonus_status'][u_n] = "REQUESTED"
-                    update_user(name, data)
-                    st.success(f"Request sent for {u_n}")
-                    st.rerun()
+                if st.button(f"REQUEST BONUS FOR {u_n}", key=f"req_{u_n}"):
+                    data.setdefault('bonus_status', {})[u_n] = "REQUESTED"; update_user(name, data); st.rerun()
+            else:
+                st.button(f"BONUS {b_status}", key=f"lock_ref_{u_n}", disabled=True)
+
+    if st.button("LOGOUT"): 
+        st.session_state.user = None
+        st.rerun()
+            
             else:
                 # Display current status (REQUESTED, RECEIVED, or FAILED)
                 st.info(f"📌 Status: {b_status}")
