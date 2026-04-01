@@ -98,28 +98,43 @@ if st.session_state.user:
     # ==========================================
     # BLOCK 5: DEPOSIT (FIXED HIGHLIGHT LOGIC)
     # ==========================================
-    with c1:
+        with c1:
+        # --- DEPOSIT CAPITAL BLOCK ---
         with st.expander("📥 DEPOSIT", expanded=True):
+            # STEP 1: Enter Amount
             d_amt = st.number_input("Amount (Min 1000)", 1000, step=500, key="dep_amt_input")
-            file = st.file_uploader("Upload Receipt", type=['jpg','png','jpeg'], key="dep_file_reg")
             
-            if file is not None:
-                # Highlight button green
-                st.markdown('<style>div.stButton > button:first-child { background-color: #00ff88 !important; color: black !important; font-weight: bold; }</style>', unsafe_allow_html=True)
-                if st.button("CONFIRM DEPOSIT", key="confirm_dep_btn"):
-                    if 'tx' not in data: data['tx'] = []
-                    data['tx'].append({
-                        "type": "DEP",
-                        "amt": d_amt,
-                        "status": "PENDING",
-                        "receipt": file.name,
-                        "date": datetime.now().strftime("%Y-%m-%d %I:%M %p")
-                    })
-                    update_user(name, data)
-                    st.success(f"Deposit of ₱{d_amt:,} sent to Admin!")
-                    st.rerun()
+            # STEP 2: File uploader only appears if amount is confirmed/entered
+            if d_amt >= 1000:
+                file = st.file_uploader("Upload Receipt", type=['jpg','png','jpeg'], key="dep_file_reg")
+                
+                # STEP 3: Confirm button only appears after file is uploaded
+                if file is not None:
+                    # Highlight button green
+                    st.markdown('<style>div.stButton > button:first-child { background-color: #00ff88 !important; color: black !important; font-weight: bold; }</style>', unsafe_allow_html=True)
+                    
+                    if st.button("CONFIRM DEPOSIT", key="confirm_dep_btn"):
+                        # FIX: Ensure 'tx' exists so it can be sent to admin
+                        if 'tx' not in data: 
+                            data['tx'] = []
+                        
+                        # Add to transaction list for Admin Boss Overview
+                        data['tx'].append({
+                            "type": "DEP",
+                            "amt": d_amt,
+                            "status": "PENDING",
+                            "receipt": file.name,
+                            "date": datetime.now().strftime("%Y-%m-%d %I:%M %p")
+                        })
+                        
+                        update_user(name, data)
+                        st.success(f"Deposit of ₱{d_amt:,} sent to Admin!")
+                        st.rerun()
+                else:
+                    st.info("Please upload your receipt to continue.")
             else:
-                st.button("UPLOAD RECEIPT TO CONFIRM", disabled=True)
+                st.warning("Minimum deposit is ₱1,000")
+                
 
     # ==========================================
     # BLOCK 6: WITHDRAW & REINVEST
