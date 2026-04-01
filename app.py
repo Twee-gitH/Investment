@@ -36,22 +36,70 @@ def update_user(name, data):
 
 
 # --- 3. UI STYLING ---
-<style>
-/* Forces all text inputs to look like CAPS LOCK is on */
-input {
-    text-transform: uppercase;
-}
+st.set_page_config(page_title="BPSM Official", layout="wide")
 
-/* SPECIFIC EXCEPTION: This ensures password fields remain case-sensitive and look normal */
-input[type="password"] {
-    text-transform: none !important;
-}
+# This CSS targets standard text inputs for Uppercase, 
+# but forces Password inputs to remain "Normal" (none).
+st.markdown("""
+    <style>
+    /* Global rule for all inputs */
+    input {
+        text-transform: uppercase;
+    }
+    
+    /* Exception rule for Password fields (Admin & User PINs) */
+    input[type="password"] {
+        text-transform: none !important;
+    }
+    
+    /* Keep placeholders looking normal */
+    input::placeholder {
+        text-transform: none;
+    }
 
-/* Optional: If you want placeholders to stay normal but typing to be Caps */
-input::placeholder {
-    text-transform: none;
-}
-</style>
+    /* Style for the user balance card */
+    .user-box {
+        background-color: #1c1e24;
+        padding: 20px;
+        border-radius: 15px;
+        border: 1px solid #3a3d46;
+        text-align: center;
+        margin-bottom: 20px;
+    }
+    .balance-val {
+        color: #00ff88;
+        font-size: 36px;
+        margin: 0;
+    }
+    .meta-text {
+        color: #8c8f99;
+        font-size: 12px;
+    }
+    .roi-text {
+        color: #00ff88;
+        font-weight: bold;
+    }
+    .section-header {
+        background: #252830;
+        padding: 10px;
+        border-radius: 5px;
+        margin-top: 20px;
+        margin-bottom: 10px;
+        font-weight: bold;
+        border-left: 5px solid #ce1126;
+    }
+    .timer-alert {
+        color: #ff4b4b;
+        font-weight: bold;
+        text-align: center;
+        padding: 5px;
+        border: 1px solid #ff4b4b;
+        border-radius: 5px;
+        margin-bottom: 5px;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
 
 
 
