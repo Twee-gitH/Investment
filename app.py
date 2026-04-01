@@ -20,7 +20,7 @@ def update_user(name, data):
     reg[name] = data
     with open(REGISTRY_FILE, "w") as f: json.dump(reg, f, default=str)
 
-# --- 2. UI & SESSION ---
+# --- 2. UI & SESSION (LOCKED VISUALS) ---
 if 'user' not in st.session_state: st.session_state.user = None
 if 'is_boss' not in st.session_state: st.session_state.is_boss = False
 st.set_page_config(page_title="BPSM Official", layout="wide")
@@ -29,14 +29,15 @@ st.markdown("""
     <style>
     input[type="text"] { text-transform: uppercase !important; }
     input[type="password"] { text-transform: none !important; -webkit-text-transform: none !important; }
-    .user-box { background-color: #1c1e24; padding: 15px; border-radius: 10px; border: 1px solid #3a3d46; margin-bottom: 10px; border-left: 5px solid #00ff88; }
-    .roi-text { color: #00ff88; font-family: monospace; font-size: 24px; font-weight: bold; }
+    .user-box { background-color: #1c1e24; padding: 15px; border-radius: 10px; border: 1px solid #3a3d46; margin-bottom: 5px; border-left: 5px solid #00ff88; }
+    .roi-text { color: #00ff88; font-family: monospace; font-size: 26px; font-weight: bold; }
     .meta-label { color: #8c8f99; font-size: 14px; }
     .section-header { background: #252830; padding: 8px; border-radius: 5px; margin-top: 15px; font-weight: bold; border-left: 5px solid #ce1126; }
+    .stButton>button { width: 100%; border-radius: 5px; height: auto; padding: 10px; white-space: normal !important; word-wrap: break-word !important; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- 3. ACCESS CONTROL (PIN: 0102030405) ---
+# --- 3. ACCESS CONTROL (ADMIN PIN: 0102030405) ---
 if st.session_state.user is None and not st.session_state.is_boss:
     st.title("BAGONG PILIPINAS STOCK MARKET")
     t1, t2 = st.tabs(["SIGN-IN", "REGISTER"])
@@ -70,7 +71,7 @@ if st.session_state.user:
     data = load_registry().get(name)
     now = datetime.now()
 
-    # --- LIVE ROI ENGINE ---
+    # --- ROI CALCULATION ENGINE ---
     MINUTE_RATE = (0.20 / 7) / 1440 
     changed = False
 
@@ -99,17 +100,14 @@ if st.session_state.user:
     
     st.markdown("<div class='section-header'>⏳ ACTIVE CYCLES</div>", unsafe_allow_html=True)
     
-    # REVERSING THE LIST SO NEW CAPITAL DISPLAYS 1ST
     inv_list = data.get('inv', [])
     for idx, t in enumerate(reversed(inv_list)):
-        # Calculate real index because we are using reversed()
         actual_idx = len(inv_list) - 1 - idx
-        
         st_t, et_t = datetime.fromisoformat(t['start']), datetime.fromisoformat(t['end'])
         grace_end = et_t + timedelta(hours=1)
         rem = et_t - now
         
-        # UI DISPLAY
+        # UI DISPLAY (LOCKED FORMAT)
         st.markdown(f"""
             <div class='user-box'>
                 <b>Capital: ₱{t['amt']:,}</b><br>
@@ -117,12 +115,13 @@ if st.session_state.user:
                 <span class='meta-label'>Total to Receive: ₱{t['amt']*0.20:,.2f}</span><br><br>
                 <b>Approved:</b> {st_t.strftime('%Y-%m-%d %I:%M %p')}<br>
                 <b>Maturity:</b> {et_t.strftime('%Y-%m-%d %I:%M %p')}<br>
-                <b style='color:#ff4b4b;'>⏳ TIME REMAINING: {str(rem).split('.')[0]}</b>
+                <b style='color:#ff4b4b;'>⏳ TIME REMAINING: {str(rem).split('.')[0] if now < et_t else 'MATURED'}</b>
             </div>
         """, unsafe_allow_html=True)
 
-        # THE PULL OUT BUTTON
-        btn_label = f"AVAILABLE TO PULL OUT CAPITAL FROM {et_t.strftime('%I:%M %p')} TO {grace_end.strftime('%I:%M %p')}"
+        # UPDATED BUTTON: INCLUDES DATE AND TIME
+        btn_label = f"AVAILABLE TO PULL OUT CAPITAL FROM {et_t.strftime('%b %d, %I:%M %p')} TO {grace_end.strftime('%b %d, %I:%M %p')}"
+        
         if et_t <= now < grace_end:
             if st.button(f"✅ PULL CAPITAL (₱{t['amt']:,})", key=f"p{actual_idx}"):
                 data['wallet'] += t['amt']
