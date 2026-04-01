@@ -1,7 +1,6 @@
 import streamlit as st
 import json
 import os
-import shutil
 from datetime import datetime, timedelta
 import time
 import pandas as pd
@@ -11,7 +10,9 @@ REGISTRY_FILE = "bpsm_registry.json"
 
 def load_registry():
     if os.path.exists(REGISTRY_FILE):
-        with open(REGISTRY_FILE, "r") as f: return json.load(f)
+        try:
+            with open(REGISTRY_FILE, "r") as f: return json.load(f)
+        except: return {}
     return {}
 
 def update_user(name, data):
@@ -19,7 +20,7 @@ def update_user(name, data):
     reg[name] = data
     with open(REGISTRY_FILE, "w") as f: json.dump(reg, f, default=str)
 
-# --- 2. UI & SESSION ---
+# --- 2. SESSION & UI ---
 if 'user' not in st.session_state: st.session_state.user = None
 if 'is_boss' not in st.session_state: st.session_state.is_boss = False
 st.set_page_config(page_title="BPSM Official", layout="wide")
@@ -50,13 +51,14 @@ if st.session_state.user is None and not st.session_state.is_boss:
         rp = st.text_input("CREATE PIN", type="password", key="r2")
         ref = st.text_input("REFERRER", key="r3").upper()
         if st.button("REGISTER ACCOUNT"):
-            update_user(rn, {"pin": rp, "wallet": 0.0, "inv": [], "tx": [], "ref_by": ref, "bonus_requests": {}})
+            update_user(rn, {"pin": rp, "wallet": 0.0, "inv": [], "tx": [], "ref_by": ref, "bonus_status": {}})
             st.success("SUCCESS"); st.rerun()
 
     with st.expander("🔐 ADMIN"):
+        # REQUIREMENT 3: ADMIN CODE UPDATED
         ap = st.text_input("ADMIN PIN", type="password")
         if st.button("ENTER BOSS MODE"):
-            if ap == "0102030405": # UPDATED ADMIN CODE
+            if ap == "0102030405": 
                 st.session_state.is_boss = True
                 st.rerun()
     st.stop()
@@ -64,17 +66,15 @@ if st.session_state.user is None and not st.session_state.is_boss:
 # --- 4. INVESTOR DASHBOARD ---
 if st.session_state.user:
     name = st.session_state.user
-    reg = load_registry()
-    data = reg[name]
+    data = load_registry().get(name)
     now = datetime.now()
 
-    # ROI & AUTO-REINVEST LOGIC
+    # REQUIREMENT 1: AUTO ROI & REINVEST
     changed = False
     for i in data.get('inv', []):
         st_t, et_t = datetime.fromisoformat(i['start']), datetime.fromisoformat(i['end'])
         grace_t = et_t + timedelta(hours=1)
         
-        # Auto-add ROI to Balance at Maturity
         if now >= et_t and not i.get('roi_paid', False):
             profit = i['amt'] * 0.20
             data['wallet'] += profit
@@ -82,24 +82,23 @@ if st.session_state.user:
             data.setdefault('tx', []).append({"date": now.strftime("%Y-%m-%d %H:%M"), "type": "WEEKLY ROI", "amt": profit, "status": "SUCCESSFUL"})
             changed = True
         
-        # Auto-Reinvest after Grace Period
         if now >= grace_t:
             i.update({"start": now.isoformat(), "end": (now + timedelta(days=7)).isoformat(), "roi_paid": False})
-            data.setdefault('tx', []).append({"date": now.strftime("%Y-%m-%d %H:%M"), "type": "AUTO-REINVEST", "amt": i['amt'], "status": "LOCKED"})
+            data.setdefault('tx', []).append({"date": now.strftime("%Y-%m-%d %H:%M"), "type": "AUTO-REINVEST", "amt": i['amt'], "status": "SUCCESSFUL"})
             changed = True
     if changed: update_user(name, data); st.rerun()
 
-    st.write(f"### Welcome, {name} | Balance: ₱{data['wallet']:,.2f}")
+    st.write(f"### Investor: {name} | Balance: ₱{data['wallet']:,.2f}")
     
-    # Cycles Display
     st.markdown("<div class='section-header'>⏳ ACTIVE CYCLES</div>", unsafe_allow_html=True)
     for idx, t in enumerate(data.get('inv', [])):
         st_t, et_t = datetime.fromisoformat(t['start']), datetime.fromisoformat(t['end'])
+        # REQUIREMENT 1: EXACT DATE & TIME OF APPROVAL AND MATURITY
         st.markdown(f"""
             <div class='user-box'>
                 <b>Capital: ₱{t['amt']:,}</b><br>
-                Approved: {st_t.strftime('%Y-%m-%d %I:%M %p')}<br>
-                Maturity: {et_t.strftime('%Y-%m-%d %I:%M %p')}
+                Approved Date/Time: {st_t.strftime('%Y-%m-%d %I:%M:%S %p')}<br>
+                Maturity Date/Time: {et_t.strftime('%Y-%m-%d %I:%M:%S %p')}
             </div>
         """, unsafe_allow_html=True)
         if et_t <= now < (et_t + timedelta(hours=1)):
@@ -107,66 +106,66 @@ if st.session_state.user:
                 data['wallet'] += t['amt']; data['inv'].pop(idx)
                 update_user(name, data); st.rerun()
 
-    # Referral Bonus System
-    st.markdown("<div class='section-header'>👥 REFERRAL BONUSES</div>", unsafe_allow_html=True)
+    # REQUIREMENT 2: COMMISSION REQUEST BUTTONS
+    st.markdown("<div class='section-header'>👥 REFERRAL COMMISSIONS</div>", unsafe_allow_html=True)
     all_u = load_registry()
-    for u_name, u_info in all_u.items():
-        if u_info.get('ref_by') == name:
-            first_dep = next((tx['amt'] for tx in u_info.get('tx', []) if tx['status'] == "SUCCESSFUL_DEP"), 0)
-            comm = first_dep * 0.20
-            status = data.get('bonus_requests', {}).get(u_name, "AVAILABLE")
+    for u_n, u_i in all_u.items():
+        if u_i.get('ref_by') == name:
+            f_dep = next((tx['amt'] for tx in u_i.get('tx', []) if tx['status'] == "SUCCESSFUL_DEP"), 0)
+            comm = f_dep * 0.20
+            b_status = data.get('bonus_status', {}).get(u_n, "AVAILABLE")
             
-            col1, col2 = st.columns([3, 2])
-            col1.write(f"Invitee: {u_name} | Bonus: ₱{comm:,.2f}")
+            c1, c2 = st.columns([3, 2])
+            c1.write(f"Invitee: {u_n} | Bonus: ₱{comm:,.2f}")
             if comm > 0:
-                if status == "AVAILABLE":
-                    if col2.button(f"Request Bonus", key=f"req_{u_name}"):
-                        data.setdefault('bonus_requests', {})[u_name] = "REQUESTED"
+                if b_status == "AVAILABLE":
+                    if c2.button(f"Request Bonus", key=f"req_{u_n}"):
+                        data.setdefault('bonus_status', {})[u_n] = "REQUESTED"
                         update_user(name, data); st.rerun()
                 else:
-                    col2.write(f"**{status}**")
+                    c2.write(f"Status: **{b_status}**")
+
+    st.markdown("<div class='section-header'>📜 TRANSACTION HISTORY</div>", unsafe_allow_html=True)
+    st.table(pd.DataFrame(data.get('tx', [])))
 
     if st.button("LOGOUT"): st.session_state.user = None; st.rerun()
 
-# --- 5. ADMIN PANEL ---
+# --- 5. REQUIREMENT 4: FULL ADMIN PANEL ---
 elif st.session_state.is_boss:
     st.title("👑 ADMIN OVERVIEW")
     all_users = load_registry()
     
     for u_name, u_data in all_users.items():
-        with st.container():
-            st.markdown(f"### Investor: {u_name} (PIN: {u_data.get('pin')})")
-            st.write(f"Wallet: ₱{u_data.get('wallet',0):,.2f}")
-            
-            # Action Buttons for Admin
-            c1, c2, c3 = st.columns(3)
-            # 1. Approve Deposits
+        with st.expander(f"Investor: {u_name} | PIN: {u_data.get('pin')} | Wallet: ₱{u_data.get('wallet'):,.2f}"):
+            # All Transactions for this user
+            st.write("### Transactions & Requests")
             for idx, tx in enumerate(u_data.get('tx', [])):
+                colA, colB = st.columns([3, 1])
+                colA.write(f"{tx['date']} | {tx['type']} | ₱{tx['amt']:,} | {tx['status']}")
                 if tx['status'] == "PENDING_DEP":
-                    if c1.button(f"Approve Dep ₱{tx['amt']}", key=f"app_{u_name}_{idx}"):
+                    if colB.button("APPROVE", key=f"app_{u_name}_{idx}"):
                         st_t = datetime.now()
                         tx['status'] = "SUCCESSFUL_DEP"
                         u_data.setdefault('inv', []).append({"amt": tx['amt'], "start": st_t.isoformat(), "end": (st_t + timedelta(days=7)).isoformat(), "roi_paid": False})
                         update_user(u_name, u_data); st.rerun()
 
-            # 2. Manage Bonus Requests
-            for inv_name, b_status in u_data.get('bonus_requests', {}).items():
-                if b_status == "REQUESTED":
-                    st.write(f"🎁 Bonus Request for referring {inv_name}")
-                    if c2.button(f"Pay Bonus to {u_name}", key=f"pay_{u_name}_{inv_name}"):
-                        # Logic: Find the invitee's first deposit for the actual amount
-                        inv_data = all_users.get(inv_name, {})
-                        f_dep = next((t['amt'] for t in inv_data.get('tx', []) if t['status'] == "SUCCESSFUL_DEP"), 0)
-                        u_data['wallet'] += (f_dep * 0.20)
-                        u_data['bonus_requests'][inv_name] = "RECEIVED"
-                        update_user(u_name, u_data); st.rerun()
-                    if c3.button(f"Fail/Deny", key=f"fail_{u_name}_{inv_name}"):
-                        u_data['bonus_requests'][inv_name] = "FAILED"
-                        update_user(u_name, u_data); st.rerun()
-
-            with st.expander("View Full Transactions"):
-                st.table(pd.DataFrame(u_data.get('tx', [])))
+            # Manage Bonus Requests
             st.divider()
-
+            st.write("### Bonus Claim Requests")
+            for inv_name, status in u_data.get('bonus_status', {}).items():
+                if status == "REQUESTED":
+                    st.write(f"Request from {u_name} for referring {inv_name}")
+                    ca, cb = st.columns(2)
+                    if ca.button(f"CONFIRM RECEIVE", key=f"conf_{u_name}_{inv_name}"):
+                        # Find amount to pay
+                        i_data = all_users.get(inv_name, {})
+                        f_amt = next((t['amt'] for t in i_data.get('tx', []) if t['status'] == "SUCCESSFUL_DEP"), 0)
+                        u_data['wallet'] += (f_amt * 0.20)
+                        u_data['bonus_status'][inv_name] = "RECEIVED"
+                        update_user(u_name, u_data); st.rerun()
+                    if cb.button(f"SET TO FAILED", key=f"fail_{u_name}_{inv_name}"):
+                        u_data['bonus_status'][inv_name] = "FAILED"
+                        update_user(u_name, u_data); st.rerun()
+                        
     if st.button("EXIT ADMIN"): st.session_state.is_boss = False; st.rerun()
-    
+        
