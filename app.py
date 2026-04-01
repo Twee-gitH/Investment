@@ -105,16 +105,15 @@ st.markdown("""
 
 # --- 4. ACCESS CONTROL (ENHANCED REFERRAL & PIN RULES) ---
 if st.session_state.user is None and not st.session_state.is_boss:
-    # Force ALL-CAPS visually in the input boxes
+    # This specific CSS fix ensures passwords are NOT forced to uppercase
     st.markdown("""
         <style>
         input { text-transform: uppercase; }
-        input[type="password"] { text-transform: none; } 
+        input[type="password"] { text-transform: none !important; } 
         </style>
         """, unsafe_allow_html=True)
 
     st.markdown("<div style='background: linear-gradient(135deg, #0038a8 0%, #ce1126 100%); padding: 40px 20px; text-align: center;'><h1>BAGONG PILIPINAS<br>STOCK MARKET</h1></div>", unsafe_allow_html=True)
-    
     t1, t2 = st.tabs(["🔑 SIGN-IN", "📝 REGISTER"])
     
     with t1:
@@ -122,22 +121,22 @@ if st.session_state.user is None and not st.session_state.is_boss:
         lp = st.text_input("SECURE PIN", type="password", max_chars=6, key="login_pin")
         if st.button("VERIFY & ACCESS"):
             reg = load_registry()
+            # Note: lp (the pin) is checked exactly as typed (case-sensitive)
             if ln in reg and reg[ln].get('pin') == lp:
                 st.session_state.user = ln
                 st.rerun()
-            else: 
-                st.error("❌ INVALID CREDENTIALS")
+            else: st.error("❌ INVALID CREDENTIALS")
             
     with t2:
         st.warning("⚠️ **IMPORTANT:** PLEASE INPUT ONLY YOUR LEGAL FIRST NAME AND LAST NAME.")
-        rn = st.text_input("FULL LEGAL NAME (LEGAL FIRST NAME & LAST NAME ONLY)", key="reg_name").upper()
+        rn = st.text_input("FULL LEGAL NAME", key="reg_name").upper()
         
-        st.info("ℹ️ **PIN SECURITY:** 6-DIGIT PIN MUST BE NUMBERS ONLY. LETTERS OR SPECIAL CHARACTERS ARE NOT ALLOWED.")
+        st.info("ℹ️ **PIN SECURITY:** 6-DIGIT PIN MUST BE NUMBERS ONLY.")
         rp1 = st.text_input("CREATE 6-DIGIT PIN", type="password", max_chars=6, key="reg_pin1")
         rp2 = st.text_input("CONFIRM 6-DIGIT PIN", type="password", max_chars=6, key="reg_pin2")
         
         st.error("🚨 **REFERRAL RULE:** ONLY ACTIVE INVESTORS ARE ALLOWED TO REFER NEW USERS.")
-        referrer = st.text_input("REFERRER NAME (ACTIVE INVESTOR ONLY)", key="reg_ref").upper()
+        referrer = st.text_input("REFERRER NAME", key="reg_ref").upper()
         
         if st.button("CREATE ACCOUNT"):
             reg = load_registry()
@@ -164,6 +163,22 @@ if st.session_state.user is None and not st.session_state.is_boss:
                     "ref_by": referrer, "claimed_refs": []
                 })
                 st.success("✅ ACCOUNT CREATED!"); time.sleep(1.5); st.rerun()
+
+    # --- 🔐 SYSTEM ADMINISTRATION (ADMIN BUTTON) ---
+    st.markdown("---")
+    with st.expander("🔐 SYSTEM ADMINISTRATION"):
+        # The key="boss_pin" ensures this input is separate from the others
+        admin_pin = st.text_input("ADMIN ACCESS PIN", type="password", key="boss_pin")
+        if st.button("LOG IN AS BOSS"):
+            # Put your specific admin password here (case sensitive!)
+            if admin_pin == "Admin123": 
+                st.session_state.is_boss = True
+                st.rerun()
+            else:
+                st.error("❌ UNAUTHORIZED")
+
+    st.stop()
+    )
 
     # --- ADMIN ACCESS SECTION ---
     # This stays visible because it is BEFORE the st.stop()
