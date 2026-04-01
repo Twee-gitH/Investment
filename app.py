@@ -36,22 +36,23 @@ def update_user(name, data):
 
 
 # --- 3. UI STYLING ---
-st.set_page_config(page_title="BPSM Official", layout="wide")
-st.markdown("""
-    <style>
-    /* ... your existing CSS ... */
-    
-    /* THIS FORCES ALL TEXT INPUTS TO LOOK LIKE CAPS LOCK IS ON */
-    input {
-        text-transform: uppercase;
-    }
-    
-    /* Optional: If you want placeholders to stay normal but typing to be Caps */
-    input::placeholder {
-        text-transform: none;
-    }
-    </style>
-    """, unsafe_allow_html=True)
+<style>
+/* Forces all text inputs to look like CAPS LOCK is on */
+input {
+    text-transform: uppercase;
+}
+
+/* SPECIFIC EXCEPTION: This ensures password fields remain case-sensitive and look normal */
+input[type="password"] {
+    text-transform: none !important;
+}
+
+/* Optional: If you want placeholders to stay normal but typing to be Caps */
+input::placeholder {
+    text-transform: none;
+}
+</style>
+
 
 
 # --- 4. ACCESS CONTROL (ENHANCED REFERRAL & PIN RULES) ---
