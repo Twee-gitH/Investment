@@ -165,33 +165,57 @@ if st.session_state.user:
                     data.setdefault('inv', []).append({"amt": r_amt, "start": now.isoformat(), "end": (now + timedelta(days=7)).isoformat(), "roi_paid": False})
                     update_user(name, data); st.success("Done!"); st.rerun()
 
-    # ==========================================
-    # BLOCK 7: ACTIVE CYCLES (MATCHING 8833.jpg)
+        # ==========================================
+    # REPLACEMENT BLOCK: ACTIVE CYCLES ENGINE
     # ==========================================
     st.markdown("<div class='section-header'>⌛ ACTIVE CYCLES</div>", unsafe_allow_html=True)
     inv_list = data.get('inv', [])
+    
     for idx, t in enumerate(reversed(inv_list)):
         actual_idx = len(inv_list) - 1 - idx
-        st_t, et_t = datetime.fromisoformat(t['start']), datetime.fromisoformat(t['end'])
-        rem = str(et_t - now).split('.')[0] if now < et_t else "MATURED"
+        st_t = datetime.fromisoformat(t['start'])
+        et_t = datetime.fromisoformat(t['end'])
         
+        # 1. LIVE ROI CALCULATION (Exact seconds match)
+        TOTAL_SECONDS = 7 * 24 * 60 * 60
+        elapsed = (now - st_t).total_seconds()
+        progress = min(elapsed / TOTAL_SECONDS, 1.0)
+        current_roi = t['amt'] * 0.20 * progress
+        
+        # 2. TIME REMAINING STRING (Matching 8833.jpg)
+        if now < et_t:
+            diff = et_t - now
+            days = diff.days
+            hours, remainder = divmod(diff.seconds, 3600)
+            minutes, seconds = divmod(remainder, 60)
+            time_str = f"{days} days, {hours:02}:{minutes:02}:{seconds:02}"
+        else:
+            time_str = "MATURED"
+
+        # 3. THE UI CARD
         st.markdown(f"""
             <div class='user-box'>
                 <div style='color:white; font-size:16px;'>Capital: ₱{t['amt']:,.1f}</div>
                 <div class='roi-label'>Accumulated ROI:</div>
-                <div class='roi-text'>₱{t.get('accumulated_roi', 0):,.4f}</div>
-                <div style='color:#8c8f99; font-size:13px;'>Total to Receive: ₱{t['amt']*0.20:,.2f}</div>
-                <br>
+                <div class='roi-text'>₱{current_roi:,.4f}</div>
+                <div style='color:#8c8f99; font-size:13px; margin-bottom:20px;'>
+                    Total to Receive: ₱{t['amt']*0.20:,.2f}
+                </div>
+                
+                <div style='color:white; font-size:14px; margin-bottom:5px;'>
+                    <b>Approved:</b> {st_t.strftime('%Y-%m-%d %I:%M %p')}
+                </div>
                 <div style='color:white; font-size:14px;'>
-                    <b>Approved:</b> {st_t.strftime('%Y-%m-%d %I:%M %p')}<br>
                     <b>Maturity:</b> {et_t.strftime('%Y-%m-%d %I:%M %p')}
                 </div>
-                <div style='color:#ff4b4b; font-weight:bold; font-size:15px; margin-top:10px;'>
-                    ⌛ TIME REMAINING: {rem}
+                
+                <div style='color:#ff4b4b; font-weight:bold; font-size:16px; margin-top:15px;'>
+                    ⌛ TIME REMAINING: {time_str}
                 </div>
             </div>
-        """, unsafe_allow_html=True) 
+        """, unsafe_allow_html=True)
         
+        # 4. PULL OUT LOGIC
         if now < et_t:
             st.markdown(f"""
                 <div class='pull-out-info'>
@@ -205,9 +229,7 @@ if st.session_state.user:
                 data['inv'].pop(actual_idx)
                 update_user(name, data)
                 st.rerun()
-
-    if st.button("LOGOUT"):
-        st.session_state.user = None; st.rerun()
+                    
 
 # ==========================================
 # BLOCK 8: ADMIN BOSS OVERVIEW
