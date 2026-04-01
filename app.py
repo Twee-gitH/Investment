@@ -98,27 +98,28 @@ if st.session_state.user:
     # ==========================================
     # BLOCK 5: DEPOSIT (FIXED HIGHLIGHT LOGIC)
     # ==========================================
-with c1:
-        # --- DEPOSIT CAPITAL BLOCK ---
+    with c1:
         with st.expander("📥 DEPOSIT", expanded=True):
-            # STEP 1: Enter Amount
-            d_amt = st.number_input("Amount (Min 1000)", 1000, step=500, key="dep_amt_input")
+            d_amt = st.number_input("Amount (Min 1000)", 1000, step=500, key="dep_input")
             
-            # STEP 2: File uploader only appears if amount is confirmed/entered
+            # Step 1: File uploader only appears if amount is valid
             if d_amt >= 1000:
-                file = st.file_uploader("Upload Receipt", type=['jpg','png','jpeg'], key="dep_file_reg")
+                file = st.file_uploader("Upload Receipt", type=['jpg','png','jpeg'], key="dep_file")
                 
-                # STEP 3: Confirm button only appears after file is uploaded
                 if file is not None:
-                    # Highlight button green
-                    st.markdown('<style>div.stButton > button:first-child { background-color: #00ff88 !important; color: black !important; font-weight: bold; }</style>', unsafe_allow_html=True)
+                    # IMPROVED CSS: Only targets the button inside the DEPOSIT expander
+                    st.markdown("""
+                        <style>
+                        div[data-testid="stExpander"]:contains("DEPOSIT") button {
+                            background-color: #00ff88 !important;
+                            color: black !important;
+                            font-weight: bold !important;
+                        }
+                        </style>
+                        """, unsafe_allow_html=True)
                     
-                    if st.button("CONFIRM DEPOSIT", key="confirm_dep_btn"):
-                        # FIX: Ensure 'tx' exists so it can be sent to admin
-                        if 'tx' not in data: 
-                            data['tx'] = []
-                        
-                        # Add to transaction list for Admin Boss Overview
+                    if st.button("CONFIRM DEPOSIT", key="confirm_dep"):
+                        if 'tx' not in data: data['tx'] = []
                         data['tx'].append({
                             "type": "DEP",
                             "amt": d_amt,
@@ -126,14 +127,12 @@ with c1:
                             "receipt": file.name,
                             "date": datetime.now().strftime("%Y-%m-%d %I:%M %p")
                         })
-                        
                         update_user(name, data)
-                        st.success(f"Deposit of ₱{d_amt:,} sent to Admin!")
+                        st.success(f"Sent to Admin!")
                         st.rerun()
-                else:
-                    st.info("Please upload your receipt to continue.")
             else:
-                st.warning("Minimum deposit is ₱1,000")
+                st.warning("Minimum ₱1,000 required")
+                
                 
 
     # ==========================================
