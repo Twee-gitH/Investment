@@ -307,18 +307,44 @@ elif st.session_state.page == "login":
             reg = load_registry()
             if u in reg and str(reg[u]['pin']) == str(p): st.session_state.user = u; st.rerun()
             else: st.error("Invalid Login")
-    with t2:
+        with t2:
         fn = st.text_input("NAME MIDDLE LAST").upper().strip()
         p1 = st.text_input("6-DIGIT PIN", type="password", max_chars=6)
         p2 = st.text_input("CONFIRM PIN", type="password", max_chars=6)
-        rn = st.text_input("REFERRAL NAME").upper().strip()
+        rn = st.text_input("REFERRAL NAME (Must be an Active Investor)").upper().strip()
+        
         if st.button("REGISTER"):
             reg = load_registry()
-            if not fn or len(p1) != 6 or p1 != p2 or rn not in reg: st.error("Check fields/Referrer")
+            
+            # 1. Check if fields are filled and PINs match
+            if not fn or len(p1) != 6 or p1 != p2:
+                st.error("Please fill all fields and ensure PINs match (6 digits).")
+            
+            # 2. Check if Referral exists
+            elif rn not in reg:
+                st.error(f"Referral Name '{rn}' not found. Please check the spelling.")
+            
+            # 3. Check if Referral is an ACTIVE investor (has 'inv' entries)
             else:
-                reg[fn] = {"pin": p1, "wallet": 0.0, "inv": [], "full_name": fn, "referral": rn, "pending_actions": [], "history": [], "commissions": []}
-                update_user(fn, reg[fn]); st.success("Success! Please Login.")
-
+                referrer_data = reg[rn]
+                if not referrer_data.get('inv') or len(referrer_data.get('inv')) == 0:
+                    st.error(f"'{rn}' is not an active investor. Only active investors can refer new users.")
+                else:
+                    # Success - Register the user
+                    reg[fn] = {
+                        "pin": p1, 
+                        "wallet": 0.0, 
+                        "inv": [], 
+                        "full_name": fn, 
+                        "referral": rn, 
+                        "pending_actions": [], 
+                        "history": [], 
+                        "commissions": [],
+                        "has_deposited": False # Track for the 20% bonus logic
+                    }
+                    update_user(fn, reg[fn])
+                    st.success("Registration Successful! You can now Login.")
+                    
 # RESTORED ORIGINAL FRONT PAGE
 else:
     st.markdown("<h1 style='color: #007BFF; margin-bottom: 0;'>ISMEX OFFICIAL</h1>", unsafe_allow_html=True)
