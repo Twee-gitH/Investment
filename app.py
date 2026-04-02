@@ -47,25 +47,42 @@ st.markdown("""
 # BLOCK 3: PAGE 1 - THE ADVERTISEMENT
 # ==========================================
 if st.session_state.page == "ad" and not st.session_state.user and not st.session_state.is_boss:
-    # Giant Title
-    st.markdown('<h1 style="text-align:center; font-size:45px; font-weight:900; background:linear-gradient(90deg, #ff007f, #ffaa00, #00ff88, #00eeff); -webkit-background-clip: text; color: transparent;">INTERNATIONAL STOCK MARKET EXCHANGE</h1>', unsafe_allow_html=True)
+    # 1. MEGA RAINBOW TITLE
+    st.markdown('<h1 style="text-align:center; font-size:45px; font-weight:900; background:linear-gradient(90deg, #ff007f, #ffaa00, #00ff88, #00eeff); -webkit-background-clip: text; color: transparent; margin-bottom:5px;">INTERNATIONAL STOCK MARKET EXCHANGE</h1>', unsafe_allow_html=True)
 
-    st.markdown('<div class="ad-panel">', unsafe_allow_html=True)
-    col_t, col_b = st.columns([0.97, 0.03])
-    with col_t:
-        st.markdown('<p style="color:#8c8f99; font-size:16px; display:inline;">Your single capital is diversified and cycled multiple times through our advanced AI-managed scalping algorithm every hour. Instead of holding a stock for a year, we take small 0.05% profits from thousands of trades, combining them to provide you with your precise, ticking 20% guaranteed profit over the 7-day cycle. Your money is always moving, never dormant</p>', unsafe_allow_html=True)
-    with col_b:
-        if st.button("⛔", key="ad_secret_dot"): st.session_state.admin_mode = True
-    st.markdown('</div>', unsafe_allow_html=True)
+    # 2. CENTERED ADMIN BUTTON (Between Title and Box)
+    col_left, col_center, col_right = st.columns([0.46, 0.08, 0.46])
+    with col_center:
+        # We use a standard button here so it's easier to click when centered
+        if st.button("⛔", key="mid_admin_btn", help="System Status"):
+            st.session_state.admin_mode = not st.session_state.admin_mode
 
-    if st.button("🚀 JOIN NOW!", use_container_width=True, key="join_btn"):
+    # 3. THE ADVERTISEMENT BOX (Text is now fully inside)
+    st.markdown("""
+        <div class="ad-panel">
+            <p style="color:#00eeff; font-weight:bold; font-size:18px; margin-bottom:10px;">How We Generate Your Profit:</p>
+            <p style="color:#8c8f99; font-size:16px; line-height:1.6;">
+                Your single capital is diversified and cycled multiple times through our advanced AI-managed scalping algorithm every hour. 
+                Instead of holding a stock for a year, we take small 0.05% profits from thousands of trades, combining them to provide you 
+                with your precise, ticking 20% guaranteed profit over the 7-day cycle. Your money is always moving, never dormant!
+            </p>
+        </div>
+    """, unsafe_allow_html=True)
+
+    # 4. JOIN BUTTON
+    st.markdown("<br>", unsafe_allow_html=True) # Adds a small space
+    if st.button("🚀 JOIN NOW!", use_container_width=True, key="main_join_btn"):
         st.session_state.page = "login"
         st.rerun()
 
+    # Secret Admin Gate (Appears only when ⛔ is clicked)
     if st.session_state.admin_mode:
-        if st.text_input("Security Code", type="password", key="gate") == "0102030405":
+        code = st.text_input("Security Code", type="password", key="admin_gate_input")
+        if code == "0102030405":
             st.session_state.is_boss = True
+            st.session_state.admin_mode = False
             st.rerun()
+            
 
 # ==========================================
 # BLOCK 4: PAGE 2 - ACCESS PORTAL (LOGIN)
