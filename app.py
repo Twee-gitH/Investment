@@ -122,35 +122,67 @@ elif st.session_state.user:
             })
             update_user(st.session_state.user, data); st.rerun()
 
+        # --- USER DASHBOARD ACTION FORMS ---
     if st.session_state.action_type == "DEP":
         with st.form("d"):
             st.markdown("### 📥 DEPOSIT REQUEST")
+            st.info("💳 **GCASH ACCOUNT:** 09XXXXXXXX | **NAME:** T*** S*** T.")
             amt_d = st.number_input("Amount to Deposit", min_value=100.0)
             uploaded_file = st.file_uploader("Browse/Upload Deposit Receipt", type=['jpg', 'jpeg', 'png'])
+            
             if st.form_submit_button("SEND TO ADMIN"):
                 if uploaded_file is not None:
                     data.setdefault('pending_actions', []).append({
-                        "type": "DEPOSIT", "amount": amt_d, "date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "status": "WAITING CONFIRMATION"
+                        "type": "DEPOSIT", "amount": amt_d, 
+                        "date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                        "status": "WAITING CONFIRMATION"
                     })
                     update_user(st.session_state.user, data)
                     st.success("Receipt sent! Waiting for Admin."); st.session_state.action_type = None; st.rerun()
                 else: st.error("Please upload your receipt first!")
 
-    # --- RUNNING CAPITALS SECTION ---
-    st.markdown("### 🚀 RUNNING CAPITALS")
-    active = data.get('inv', [])
-    if not active: st.info("No running capitals.")
-    else:
-        now = datetime.now()
-        for idx, a in enumerate(active):
-            start_dt = datetime.fromisoformat(a['start_time'])
-            end_dt = start_dt + timedelta(days=7)
-            st.markdown(f"<div class='hist-card'><b>RUNNING CAPITAL</b>: ₱{a['amount']:,.2f}<br><small>Matures: {end_dt.strftime('%Y-%m-%d %H:%M')}</small></div>", unsafe_allow_html=True)
-            if now >= end_dt:
-                if st.button(f"📥 PULL OUT ₱{a['amount']*1.20:,.2f}", key=f"p_{idx}"):
-                    data['wallet'] += (a['amount'] * 1.20)
-                    active.pop(idx)
-                    update_user(st.session_state.user, data); st.rerun()
+    elif st.session_state.action_type == "WITH":
+        with st.form("w"):
+            st.markdown("### 💸 WITHDRAWAL REQUEST")
+            st.write(f"Available Balance: **₱{data['wallet']:,.2f}**")
+            amt_w = st.number_input("Amount to Withdraw", min_value=100.0, max_value=data['wallet'])
+            b_name = st.text_input("BANK NAME (e.g. GCASH, BDO, etc.)").upper()
+            a_name = st.text_input("ACCOUNT NAME").upper()
+            a_num = st.text_input("ACCOUNT NUMBER")
+            
+            if st.form_submit_button("SUBMIT WITHDRAWAL"):
+                if amt_w > data['wallet']: st.error("Insufficient Balance")
+                elif not b_name or not a_name or not a_num: st.error("Please fill all bank details")
+                else:
+                    data['wallet'] -= amt_w
+                    data.setdefault('pending_actions', []).append({
+                        "type": "WITHDRAW", "amount": amt_w, "bank": b_name,
+                        "acc_name": a_name, "acc_num": a_num,
+                        "date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                        "status": "WITHDRAWAL REQUESTED"
+                    })
+                    update_user(st.session_state.user, data)
+                    st.success("Withdrawal request sent!"); st.session_state.action_type = None; st.rerun()
+
+    elif st.session_state.action_type == "REIN":
+        with st.form("r"):
+            st.markdown("### ♻️ REINVEST CAPITAL")
+            st.write(f"Available Balance: **₱{data['wallet']:,.2f}**")
+            amt_r = st.number_input("Amount to Reinvest", min_value=100.0, max_value=data['wallet'])
+            
+            if st.form_submit_button("CONFIRM REINVESTMENT"):
+                if amt_r > data['wallet']: st.error("Insufficient Balance")
+                else:
+                    data['wallet'] -= amt_r
+                    data.setdefault('inv', []).append({"amount": amt_r, "start_time": datetime.now().isoformat()})
+                    data.setdefault('history', []).append({
+                        "type": "RECYCLE", "amount": amt_r, 
+                        "date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"), 
+                        "status": "RECYCLE RUNNING"
+                    })
+                    update_user(st.session_state.user, data)
+                    st.success("Reinvestment Successful!"); st.session_state.action_type = None; st.rerun()
+                    
                     
     # --- REFERRAL & COMMISSION SECTION ---
     st.markdown("### 🤝 REFERRAL COMMISSIONS (20%)")
