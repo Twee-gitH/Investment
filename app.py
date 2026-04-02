@@ -136,50 +136,45 @@ if st.session_state.user:
         </div>
     """, unsafe_allow_html=True)
 
-            # Action Buttons
-    c1, c2, c3 = st.columns(3)
-    with c1:
+                with c1:
         with st.expander("📥 DEPOSIT"):
-            # Check if there's already a pending deposit to show "Waiting"
+            # 1. First, check if there is an active pending deposit
             pending_deps = [t for t in data.get('tx', []) if t['type'] == "DEP" and t['status'] == "PENDING"]
             
             if pending_deps:
                 st.warning("⏳ WAITING FOR ADMIN APPROVAL")
                 for p in pending_deps:
-                    st.caption(f"Amount: ₱{p['amt']:,} | Sent: {p.get('date', 'Recent')}")
+                    st.caption(f"Amount: ₱{p['amt']:,} | Sent: {p.get('date', 'Pending')}")
             
-            st.divider()
-            d_amt = st.number_input("New Deposit Amount", 1000, step=500)
-            file = st.file_uploader("Upload Receipt", type=['jpg','png','jpeg'])
-            if file and st.button("CONFIRM DEPOSIT"):
-                data.setdefault('tx', []).append({
-                    "type": "DEP", 
-                    "amt": d_amt, 
-                    "status": "PENDING", 
-                    "date": now.strftime("%Y-%m-%d %I:%M %p")
-                })
-                update_user(name, data)
-                st.rerun()
-
-    with c2:
-        with st.expander("💸 WITHDRAW"):
-            current_bal = float(data.get('wallet', 0.0))
-            w_amt = st.number_input("Amount", min_value=0.0, max_value=max(0.0, current_bal), value=0.0)
-            if st.button("CONFIRM WITHDRAW") and w_amt > 0:
-                data['wallet'] -= w_amt
-                data.setdefault('tx', []).append({"type": "WITH", "amt": w_amt, "status": "PENDING", "date": now.strftime("%Y-%m-%d %I:%M %p")})
-                update_user(name, data)
-                st.rerun()
-
-    with c3:
-        with st.expander("♻️ REINVEST"):
-            current_bal = float(data.get('wallet', 0.0))
-            r_amt = st.number_input("Reinvest Amount", min_value=0.0, max_value=max(0.0, current_bal), value=0.0)
-            if st.button("CONFIRM REINVEST") and r_amt >= 1000:
-                data['wallet'] -= r_amt
-                data.setdefault('inv', []).append({"amt": r_amt, "start": now.isoformat(), "end": (now + timedelta(days=7)).isoformat(), "roi_paid": False})
-                update_user(name, data)
-                st.rerun()
+            else:
+                # 2. Amount Input (Start with 0 so the rest stays hidden)
+                d_amt = st.number_input("Enter Deposit Amount", min_value=0, step=500, value=0)
+                
+                # 3. REACTIVE TRIGGER: Only show the rest if d_amt > 0
+                if d_amt > 0:
+                    st.markdown(f"""
+                        <div style="background-color: #252830; padding: 10px; border-radius: 5px; border: 1px solid #00ff88; margin-bottom: 10px;">
+                            <p style="color: #8c8f99; font-size: 12px; margin: 0;">CONFIRM AMOUNT:</p>
+                            <p style="color: #00ff88; font-size: 20px; font-weight: bold; margin: 0;">₱{d_amt:,.2f}</p>
+                        </div>
+                    """, unsafe_allow_html=True)
+                    
+                    # Show Upload and Button together
+                    file = st.file_uploader("Upload Receipt Screenshot", type=['jpg','png','jpeg'])
+                    
+                    if file:
+                        if st.button("SEND TO ADMIN"):
+                            data.setdefault('tx', []).append({
+                                "type": "DEP", 
+                                "amt": d_amt, 
+                                "status": "PENDING", 
+                                "date": now.strftime("%Y-%m-%d %I:%M %p")
+                            })
+                            update_user(name, data)
+                            st.rerun()
+                else:
+                    st.info("Please enter an amount to proceed with upload.")
+                    
                 
                 
                 
