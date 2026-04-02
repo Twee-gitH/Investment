@@ -143,65 +143,56 @@ elif st.session_state.user:
                     data.setdefault('inv', []).append({"amount": amt_r, "start_time": datetime.now().isoformat()})
                     update_user(st.session_state.user, data); st.success("Cycle Started!"); st.session_state.action_type = None; st.rerun()
 
-    # --- TRANSACTION HISTORY SECTION ---
+    # --- MOVED HERE: RUNNING CAPITALS (BELOW BUTTONS) ---
+    st.markdown("### 🚀 RUNNING CAPITALS")
+    active = data.get('inv', [])
+    if not active:
+        st.info("No running capitals.")
+    else:
+        updated_invs = []
+        needs_update = False
+        now = datetime.now()
+        for idx, a in enumerate(active):
+            start_dt = datetime.fromisoformat(a['start_time'])
+            end_dt = start_dt + timedelta(days=7)
+            grace_end = end_dt + timedelta(hours=1)
+            
+            if now > grace_end:
+                a['start_time'] = now.isoformat()
+                needs_update = True
+                st.toast(f"Capital ₱{a['amount']:,} recycled.")
+                start_dt, end_dt, grace_end = now, now + timedelta(days=7), now + timedelta(days=7, hours=1)
+
+            st.markdown(f"""
+                <div class='hist-card' style='border-left-color:#00ff88;'>
+                    <b>CAPITAL AMOUNT</b>: ₱{a['amount']:,.2f}<br>
+                    <small><b>Start:</b> {start_dt.strftime('%Y-%m-%d %H:%M')} | <b>End:</b> {end_dt.strftime('%Y-%m-%d %H:%M')}</small>
+                </div>
+            """, unsafe_allow_html=True)
+
+            if end_dt <= now <= grace_end:
+                if st.button(f"📥 PULL OUT ₱{a['amount']*1.20:,.2f}", key=f"pull_{idx}"):
+                    data['wallet'] += (a['amount'] * 1.20)
+                    needs_update = True
+                    update_user(st.session_state.user, data); st.balloons(); st.rerun()
+            elif now < end_dt:
+                st.write(f"⏳ Matures in: {str(end_dt - now).split('.')[0]}")
+            
+            updated_invs.append(a)
+        if needs_update:
+            data['inv'] = updated_invs
+            update_user(st.session_state.user, data)
+
+    # --- SECTION: TRANSACTION HISTORY (AT THE BOTTOM) ---
     st.markdown("### 📜 TRANSACTION HISTORY")
-    tabs = st.tabs(["⏳ Waiting", "✅ Approved"])
-    
+    tabs = st.tabs(["⏳ Waiting Approval", "✅ Approved"])
     with tabs[0]:
         pending = data.get('pending_actions', [])
-        if not pending: st.info("No waiting approvals.")
+        if not pending: st.info("No waiting transactions.")
         for p in pending:
             st.markdown(f"<div class='hist-card' style='border-left-color:#ffaa00;'><b>{p['type']}</b>: ₱{p['amount']:,.2f}<br><small>{p['date'][:16]}</small></div>", unsafe_allow_html=True)
-            
     with tabs[1]:
-        active = data.get('inv', [])
-        if not active: 
-            st.info("No active investments.")
-        else:
-            updated_invs = []
-            needs_update = False
-            now = datetime.now()
-            
-            for idx, a in enumerate(active):
-                start_dt = datetime.fromisoformat(a['start_time'])
-                end_dt = start_dt + timedelta(days=7)
-                grace_end = end_dt + timedelta(hours=1)
-                
-                # RECYCLE LOGIC: If passed 1-hour grace period, reset start time
-                if now > grace_end:
-                    a['start_time'] = now.isoformat()
-                    needs_update = True
-                    st.toast(f"Capital ₱{a['amount']:,} recycled for another 7 days.")
-                    start_dt = now
-                    end_dt = start_dt + timedelta(days=7)
-                    grace_end = end_dt + timedelta(hours=1)
-
-                st.markdown(f"""
-                    <div class='hist-card' style='border-left-color:#00ff88;'>
-                        <b>RUNNING CAPITAL</b>: ₱{a['amount']:,.2f}<br>
-                        <small><b>Started:</b> {start_dt.strftime('%Y-%m-%d %H:%M')}</small><br>
-                        <small><b>Matures:</b> {end_dt.strftime('%Y-%m-%d %H:%M')}</small>
-                    </div>
-                """, unsafe_allow_html=True)
-
-                # PULL OUT BUTTON: Visible only during the 1-hour grace period
-                if end_dt <= now <= grace_end:
-                    if st.button(f"📥 PULL OUT ₱{a['amount']*1.20:,.2f}", key=f"pull_{idx}"):
-                        data['wallet'] += (a['amount'] * 1.20)
-                        # Not adding to updated_invs removes it from active capitals
-                        needs_update = True
-                        update_user(st.session_state.user, data)
-                        st.balloons()
-                        st.rerun()
-                elif now < end_dt:
-                    st.write(f"⏳ Time Remaining: {str(end_dt - now).split('.')[0]}")
-                
-                # Keep in running list if not pulled out
-                updated_invs.append(a)
-
-            if needs_update:
-                data['inv'] = updated_invs
-                update_user(st.session_state.user, data)
+        st.info("Approved history will appear here.")
 
 # --- ROUTE C: LOGIN ---
 elif st.session_state.page == "login":
@@ -232,4 +223,3 @@ else:
     if st.session_state.admin_mode:
         if st.text_input("Code", type="password") == "0102030405":
             st.session_state.is_boss = True; st.rerun()
-    
