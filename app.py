@@ -205,7 +205,7 @@ elif st.session_state.user:
                 data['wallet'] += c['amt']; c['status'] = "CLAIMED"
                 update_user(st.session_state.user, data); st.rerun()
         else: col_btn.success("✅ CLAIMED")
-
+            
     st.markdown("### 📜 TRANSACTION HISTORY")
     for p in data.get('pending_actions', []):
         lbl = "WAITING CONFIRMATION" if p['type'] == "DEPOSIT" else "WITHDRAWAL REQUESTED"
