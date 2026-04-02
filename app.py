@@ -105,8 +105,7 @@ elif st.session_state.user:
         </div>
     """, unsafe_allow_html=True)
 
-    
-        c1, c2, c3 = st.columns(3)
+       c1, c2, c3 = st.columns(3)
     if c1.button("📥 DEPOSIT"): st.session_state.action_type = "DEP"
     if c2.button("💸 WITHDRAW"): st.session_state.action_type = "WITH"
     if c3.button("♻️ REINVEST"):
