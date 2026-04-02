@@ -99,26 +99,47 @@ elif st.session_state.page == "login" and not st.session_state.user and not st.s
 
     st.markdown("---")
 
-    # --- MEMBER LOG IN SECTION ---
+        # --- MEMBER LOG IN SECTION ---
     if st.session_state.sub_page == "login_form":
         st.info("USER NAME: INPUT YOUR 1ST NAME, MIDDLE NAME, AND LAST NAME")
-        u_name_in = st.text_input("FULL USERNAME", key="l_u").upper().strip()
+        # .strip() removes any accidental spaces at the very beginning or end
+        u_name_raw = st.text_input("FULL USERNAME", key="l_u").upper().strip()
         
         st.info("PASSWORD: INPUT YOUR 6-DIGIT NUMBERS")
         u_pin = st.text_input("6-DIGIT PIN", type="password", max_chars=6, key="l_p")
         
-        # Physical Button to Enter
+        # WE USE A PHYSICAL BUTTON TO TRIGGER THE SEARCH
         if st.button("LOG IN NOW", key="btn_login_final", use_container_width=True):
             reg = load_registry()
-            formatted_underscore = u_name_in.replace(" ", "_")
-            user_data = reg.get(u_name_in) or reg.get(formatted_underscore)
             
+            # --- THE SMART SEARCH ---
+            # We create the 3 possible ways the name was saved:
+            # 1. "FIRST MIDDLE LAST"
+            # 2. "FIRST_MIDDLE_LAST"
+            # 3. "FIRST_NAME_MIDDLE_NAME_LAST_NAME"
+            name_v1 = u_name_raw
+            name_v2 = u_name_raw.replace(" ", "_")
+            
+            # Try to find the user data using any of these versions
+            user_data = reg.get(name_v1) or reg.get(name_v2)
+            
+            # If still not found, search the database manually for a match
+            if not user_data:
+                for key in reg.keys():
+                    if key.replace("_", " ") == u_name_raw:
+                        user_data = reg[key]
+                        u_name_raw = key # Update to the correct database key
+                        break
+
+            # --- VERIFICATION ---
             if user_data and str(user_data.get('pin')) == str(u_pin):
-                st.session_state.user = u_name_in if u_name_in in reg else formatted_underscore
+                st.session_state.user = u_name_raw
+                st.success(f"WELCOME, {u_name_raw}!")
                 st.rerun()
             else:
-                st.error("Invalid Username or PIN.")
-
+                # If it gets here, the PIN is wrong or the Name truly isn't registered
+                st.error("❌ INVALID: Name or 6-Digit PIN does not match. Please check your spelling.")
+    
     # --- REGISTER AS MEMBER SECTION ---
     elif st.session_state.sub_page == "reg_form":
         st.warning("PLEASE USE CAPSLOCK FOR ALL NAME FIELDS")
