@@ -145,6 +145,14 @@ elif st.session_state.user:
     
     col1, col2 = st.columns([0.8, 0.2])
     with col1: st.write(f"Logged in as: **{data.get('full_name')}**")
+            # THIS MAKES THE LINK SHOW AT THE VERY TOP
+    base_url = "https://investment-a6i6xonbqcuytzdgvkx9m6.streamlit.app/"
+    my_ref_link = f"{base_url}?ref={st.session_state.user.replace(' ', '+')}"
+    
+    with st.expander("🔗 TAP HERE FOR YOUR REFERRAL LINK"):
+        st.code(my_ref_link)
+        st.caption("Share this link to auto-fill your name for new sign-ups.")
+        
     with col2:
         if st.button("LOGOUT"):
             st.session_state.user = None; st.session_state.page = "ad"; st.rerun()
