@@ -54,30 +54,41 @@ if st.session_state.is_boss:
     
     reg = load_registry()
     st.subheader("🔔 PENDING APPROVALS")
-    found_pending = False
     for username, u_data in reg.items():
         pending_list = u_data.get('pending_actions', [])
         for idx, action in enumerate(pending_list):
-            found_pending = True
             with st.expander(f"{action['type']} - {username} (₱{action.get('amount', 0):,.2f})"):
                 ca, cr = st.columns(2)
                 if ca.button("✅ APPROVE", key=f"app_{username}_{idx}"):
-                    # Record in History
-                    u_data.setdefault('history', []).append({
-                        "type": action['type'],
-                        "amount": action['amount'],
-                        "date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                        "status": "CONFIRMED" if action['type'] == "DEPOSIT" else "WITHDRAWAL APPROVED"
-                    })
-                    # If Deposit, turn into Running Capital
                     if action['type'] == "DEPOSIT":
+                        # Logic for Referral Commission (First Deposit Only)
+                        if not u_data.get('has_deposited'):
+                            ref_name = u_data.get('referral')
+                            if ref_name in reg:
+                                commission = action['amount'] * 0.20
+                                reg[ref_name].setdefault('commissions', []).append({
+                                    "referee": username,
+                                    "deposit": action['amount'],
+                                    "amt": commission,
+                                    "status": "UNCLAIMED"
+                                })
+                            u_data['has_deposited'] = True
+                        
                         u_data.setdefault('inv', []).append({"amount": action['amount'], "start_time": datetime.now().isoformat()})
+                    
+                    if action['type'] == "COMMISSION_REQUEST":
+                        # Admin simply clears the request; money logic happens on user side
+                        pass
+
+                    u_data.setdefault('history', []).append({
+                        "type": action['type'], "amount": action['amount'],
+                        "date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "status": "CONFIRMED"
+                    })
                     u_data['pending_actions'].pop(idx)
-                    update_user(username, u_data); st.rerun()
-                if cr.button("❌ REJECT", key=f"rej_{username}_{idx}"):
-                    if action['type'] == "WITHDRAW": u_data['wallet'] += action['amount']
-                    u_data['pending_actions'].pop(idx)
-                    update_user(username, u_data); st.rerun()
+                    # We save the entire registry here because we modified the Referrer's data too
+                    with open("bpsm_registry.json", "w") as f: json.dump(reg, f, indent=4, default=str)
+                    st.rerun()
+                    
 
 # --- USER DASHBOARD ---
 elif st.session_state.user:
@@ -140,7 +151,33 @@ elif st.session_state.user:
                     data['wallet'] += (a['amount'] * 1.20)
                     active.pop(idx)
                     update_user(st.session_state.user, data); st.rerun()
-
+                    
+    # --- REFERRAL & COMMISSION SECTION ---
+    st.markdown("### 🤝 REFERRAL COMMISSIONS (20%)")
+    comms = data.get('commissions', [])
+    if not comms:
+        st.info("No referral commissions yet.")
+    else:
+        for c_idx, c in enumerate(comms):
+            col_ref, col_btn = st.columns([0.7, 0.3])
+            with col_ref:
+                st.write(f"👤 **{c['referee']}** | Deposit: ₱{c['deposit']:,.2f} | **Bonus: ₱{c['amt']:,.2f}**")
+            with col_btn:
+                if c['status'] == "UNCLAIMED":
+                    if st.button(f"CLAIM ₱{c['amt']:,.2f}", key=f"ref_{c_idx}"):
+                        # Add to wallet and mark as claimed
+                        data['wallet'] += c['amt']
+                        c['status'] = "CLAIMED"
+                        # Notify Admin
+                        data.setdefault('pending_actions', []).append({
+                            "type": "COMMISSION_CLAIMED", "amount": c['amt'], 
+                            "date": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                        })
+                        update_user(st.session_state.user, data); st.rerun()
+                else:
+                    st.success("✅ CLAIMED")
+                    
+    
     # --- HISTORY SECTION ---
     st.markdown("### 📜 TRANSACTION HISTORY")
     st.subheader("⏳ PENDING REQUESTS")
