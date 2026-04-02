@@ -30,55 +30,25 @@ st.set_page_config(page_title="ISMEX Official", layout="wide")
 
 st.markdown("""
     <style>
-    .stApp { background-color: #0e1117; color: white; }
-    
-    /* THE FLEX BANNER: Keeps everything in 1 line */
-    .title-container {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 10px;
-        background-color: #1a1e26;
-        border-radius: 10px;
-        padding: 25px 10px;
-        border: 1px solid #2d303a;
-        margin-bottom: 10px;
-    }
-    
-        .main-title { 
-        font-weight: bold; 
-        font-size: 36px; /* Increased from 24px to 36px */
-        background: linear-gradient(90deg, #ff007f, #ffaa00, #00ff88, #00eeff);
-        -webkit-background-clip: text; color: transparent;
-        margin-right: 5px;
-        white-space: nowrap;
-        line-height: 1.2;
-    }
-    
-    
-    .ad-panel { 
-        background: #1c1e26; border-radius: 8px; border: 1px dashed #00eeff; 
-        padding: 20px; margin-bottom: 25px; text-align: center;
-    }
-    .ad-title { color: #00eeff; font-weight: bold; font-size: 14px; margin-bottom: 8px; }
-    .ad-text { color: #8c8f99; font-size: 13px; line-height: 1.6; margin: 0; }
-
-    .balance-card { background: #1c1e26; padding: 25px; border-radius: 12px; border: 1px solid #2d303a; text-align: center; margin-bottom: 20px;}
-    .cycle-card { background-color: #1c1e26; padding: 20px; border-radius: 12px; border: 1px solid #2d303a; border-left: 4px solid #00ff88; margin-bottom: 15px; }
-    
-    /* SECRET BUTTON STYLING */
+    /* Makes the secret admin button look like a tiny period */
     .stButton>button:contains("⛔") {
         background-color: transparent !important;
         border: none !important;
-        color: white !important;
-        font-size: 24px !important;
+        color: #8c8f99 !important;
+        font-size: 15px !important;
         padding: 0 !important;
-        margin: 0 !important;
+        margin-left: -3px !important;
+        display: inline !important;
+        min-height: 0px !important;
         width: auto !important;
-        box-shadow: none !important;
+    }
+    .ad-panel { 
+        background: #1c1e26; border-radius: 8px; border: 1px dashed #00eeff; 
+        padding: 20px; text-align: center; margin-bottom: 20px;
     }
     </style>
     """, unsafe_allow_html=True)
+
 
 # ==========================================
 # BLOCK 3: AUTH & STEALTH AD-BUTTON
