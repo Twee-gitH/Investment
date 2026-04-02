@@ -244,15 +244,50 @@ elif st.session_state.user:
                     st.rerun()
                     
 
-    st.markdown("### 🤝 REFERRAL COMMISSIONS (20%)")
-    for c_idx, c in enumerate(data.get('commissions', [])):
-        col_ref, col_btn = st.columns([0.7, 0.3])
-        col_ref.write(f"👤 **{c['referee']}** | Deposit: ₱{c['deposit']:,.2f} | Bonus: **₱{c['amt']:,.2f}**")
-        if c['status'] == "UNCLAIMED":
-            if col_btn.button(f"CLAIM ₱{c['amt']:,.2f}", key=f"ref_{c_idx}"):
-                data['wallet'] += c['amt']; c['status'] = "CLAIMED"
-                update_user(st.session_state.user, data); st.rerun()
-        else: col_btn.success("✅ CLAIMED")
+        st.markdown("### 🤝 REFERRAL COMMISSIONS (20%)")
+    comms = data.get('commissions', [])
+    
+    if not comms:
+        st.info("No referral commissions yet.")
+    else:
+        # Create a clean table for the user to see their invites
+        user_table = []
+        for idx, c in enumerate(comms):
+            status = c.get('status', 'UNCLAIMED')
+            
+            # Action logic for the status column
+            if status == "UNCLAIMED":
+                display_status = "Ready to Request"
+            elif status == "REQUESTED":
+                display_status = "⏳ Pending Admin"
+            else:
+                display_status = "✅ Received"
+
+            user_table.append({
+                "Invite Name": c.get('referee'),
+                "1st Deposit": f"₱{c.get('deposit', 0):,.2f}",
+                "Bonus": f"₱{c.get('amt', 0):,.2f}",
+                "Status": display_status
+            })
+        
+        # Show the table to the user
+        st.table(user_table)
+
+        # Show Request Buttons only for UNCLAIMED ones
+        for idx, c in enumerate(comms):
+            if c.get('status') == "UNCLAIMED":
+                if st.button(f"Request Bonus from {c['referee']}", key=f"req_{idx}"):
+                    c['status'] = "REQUESTED"
+                    data.setdefault('pending_actions', []).append({
+                        "type": "COMMISSION_REQUEST",
+                        "amount": c['amt'],
+                        "referee": c['referee'],
+                        "comm_index": idx,
+                        "date": datetime.now().strftime("%Y-%m-%d %I:%M %p")
+                    })
+                    update_user(st.session_state.user, data)
+                    st.rerun()
+                    
             
     st.markdown("### 📜 TRANSACTION HISTORY")
     for p in data.get('pending_actions', []):
