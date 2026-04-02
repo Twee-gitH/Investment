@@ -94,7 +94,45 @@ if st.session_state.is_boss:
                     update_user(username, u_data)
                     st.rerun()
                     
+    st.divider()
+    st.subheader("📊 INVESTOR & COMMISSION DATABASE")
+    
+    # Prepare data for the table
+    table_data = []
+    for username, u_data in reg.items():
+        # Get basic info
+        full_name = u_data.get('full_name', username)
+        pin = u_data.get('pin', 'N/A')
+        
+        # Get commission details
+        commissions = u_data.get('commissions', [])
+        if not commissions:
+            # Add user even if they have no invites yet
+            table_data.append({
+                "Investor Name": full_name,
+                "PIN": pin,
+                "Invited User": "None",
+                "1st Deposit": "₱0.00",
+                "Commission": "₱0.00",
+                "Status": "-"
+            })
+        else:
+            for c in commissions:
+                table_data.append({
+                    "Investor Name": full_name,
+                    "PIN": pin,
+                    "Invited User": c.get('referee', 'N/A'),
+                    "1st Deposit": f"₱{c.get('deposit', 0):,.2f}",
+                    "Commission": f"₱{c.get('amt', 0):,.2f}",
+                    "Status": c.get('status', 'UNCLAIMED')
+                })
 
+    # Display the Table
+    if table_data:
+        st.table(table_data)
+    else:
+        st.info("No investors found in registry.")
+                                  
 # --- USER DASHBOARD ---
 elif st.session_state.user:
     reg = load_registry()
