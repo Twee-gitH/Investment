@@ -95,7 +95,6 @@ elif st.session_state.user:
     if c2.button("💸 WITHDRAW"): st.session_state.action_type = "WITH"
     if c3.button("♻️ REINVEST"): st.session_state.action_type = "REIN"
 
-    # Action Forms (Deposit, Withdraw, Reinvest)
     if st.session_state.action_type == "DEP":
         with st.form("d"):
             amt_d = st.number_input("Amount", min_value=100.0)
@@ -142,14 +141,21 @@ elif st.session_state.page == "login":
     if st.button("Back"): st.session_state.page = "ad"; st.rerun()
     u = st.text_input("USERNAME").upper().strip()
     p = st.text_input("PIN", type="password")
+    
     if st.button("LOGIN"):
         reg = load_registry()
         if u in reg and str(reg[u]['pin']) == str(p):
             st.session_state.user = u; st.rerun()
+        else:
+            st.error("Invalid Username or PIN")
+            
     if st.button("REGISTER NEW ACCOUNT"):
         reg = load_registry()
-        reg[u] = {"pin": p, "wallet": 0.0, "inv": [], "full_name": u, "pending_actions": []}
-        update_user(u, reg[u]); st.success("Created!")
+        if u in reg:
+            st.warning("THIS ACCOUNT IS ALREADY CREATED PROCEED LOG IN")
+        else:
+            reg[u] = {"pin": p, "wallet": 0.0, "inv": [], "full_name": u, "pending_actions": []}
+            update_user(u, reg[u]); st.success("Created!")
 
 # --- SIMPLE ADVERTISEMENT FRONT PAGE ---
 else:
