@@ -117,10 +117,8 @@ if st.session_state.is_boss:
                     "Status": c.get('status', 'UNCLAIMED')
                 })
 
-    if table_data:
-        st.table(table_data)
-    else:
-        st.info("No investors found in registry.")
+    if table_data: st.table(table_data)
+    else: st.info("No investors found in registry.")
                                   
 # --- USER DASHBOARD ---
 elif st.session_state.user:
@@ -128,8 +126,16 @@ elif st.session_state.user:
     data = reg.get(st.session_state.user, {})
     if 'wallet' not in data: data['wallet'] = 0.0
     
+    # REFERRAL LINK GENERATION (Moved to the very top for visibility)
+    base_url = "https://investment-a6i6xonbqcuytzdgvkx9m6.streamlit.app/"
+    my_ref_link = f"{base_url}?ref={st.session_state.user.replace(' ', '+')}"
+
     col1, col2 = st.columns([0.8, 0.2])
-    with col1: st.write(f"Logged in as: **{data.get('full_name')}**")
+    with col1: 
+        st.write(f"Logged in as: **{data.get('full_name')}**")
+        # Display link immediately under login name
+        st.info(f"🔗 **YOUR REFERRAL LINK:** {my_ref_link}")
+        
     with col2:
         if st.button("LOGOUT"):
             st.session_state.user = None; st.session_state.page = "ad"; st.rerun()
@@ -154,9 +160,7 @@ elif st.session_state.user:
             uploaded_file = st.file_uploader("Browse Receipt", type=['jpg', 'jpeg', 'png'])
             if st.form_submit_button("SEND TO ADMIN"):
                 if uploaded_file:
-                    data.setdefault('pending_actions', []).append({
-                        "type": "DEPOSIT", "amount": amt_d, "date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "status": "WAITING CONFIRMATION"
-                    })
+                    data.setdefault('pending_actions', []).append({"type": "DEPOSIT", "amount": amt_d, "date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "status": "WAITING CONFIRMATION"})
                     update_user(st.session_state.user, data); st.session_state.action_type = None; st.rerun()
                 else: st.error("Upload receipt.")
 
@@ -173,10 +177,7 @@ elif st.session_state.user:
                 elif not b_name or not a_name or not a_num: st.error("Fill all details.")
                 else:
                     data['wallet'] -= amt_w
-                    data.setdefault('pending_actions', []).append({
-                        "type": "WITHDRAW", "amount": amt_w, "bank": b_name, "acc_name": a_name, "acc_num": a_num,
-                        "date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "status": "WITHDRAWAL REQUESTED"
-                    })
+                    data.setdefault('pending_actions', []).append({"type": "WITHDRAW", "amount": amt_w, "bank": b_name, "acc_name": a_name, "acc_num": a_num, "date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "status": "WITHDRAWAL REQUESTED"})
                     update_user(st.session_state.user, data); st.session_state.action_type = None; st.rerun()
 
     elif st.session_state.action_type == "REIN":
@@ -188,15 +189,12 @@ elif st.session_state.user:
                 else:
                     data['wallet'] -= amt_r
                     data.setdefault('inv', []).append({"amount": amt_r, "start_time": datetime.now().isoformat()})
-                    data.setdefault('history', []).append({
-                        "type": "RECYCLE", "amount": amt_r, "date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "status": "RECYCLE RUNNING"
-                    })
+                    data.setdefault('history', []).append({"type": "RECYCLE", "amount": amt_r, "date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "status": "RECYCLE RUNNING"})
                     update_user(st.session_state.user, data); st.session_state.action_type = None; st.rerun()
 
     st.markdown("### 🚀 RUNNING CAPITALS")
     active = data.get('inv', [])
-    if not active:
-        st.info("No running capitals.")
+    if not active: st.info("No running capitals.")
     else:
         now = datetime.now()
         for idx, a in reversed(list(enumerate(active))):
@@ -214,17 +212,12 @@ elif st.session_state.user:
                 active.pop(idx)
                 update_user(st.session_state.user, data); st.rerun()
 
-    # --- REFERRAL SECTION FIXED: MOVED OUTSIDE LOOPS ---
     st.divider()
     st.markdown("### 🤝 REFERRAL COMMISSIONS (20%)")
-    base_url = "https://investment-a6i6xonbqcuytzdgvkx9m6.streamlit.app/"
-    my_ref_link = f"{base_url}?ref={st.session_state.user.replace(' ', '+')}"
-    st.info("📢 **YOUR REFERRAL LINK:**")
-    st.code(my_ref_link)
+    st.code(my_ref_link) # Show link again here
     
     comms = data.get('commissions', [])
-    if not comms:
-        st.info("No referral commissions yet.")
+    if not comms: st.info("No referral commissions yet.")
     else:
         user_table = []
         for idx, c in enumerate(comms):
@@ -232,7 +225,6 @@ elif st.session_state.user:
             disp = "Ready to Request" if status == "UNCLAIMED" else ("⏳ Pending Admin" if status == "REQUESTED" else "✅ Received")
             user_table.append({"Invite Name": c.get('referee'), "Bonus": f"₱{c.get('amt', 0):,.2f}", "Status": disp})
         st.table(user_table)
-
         for idx, c in enumerate(comms):
             if c.get('status') == "UNCLAIMED":
                 if st.button(f"Claim Bonus from {c['referee']}", key=f"req_{idx}"):
