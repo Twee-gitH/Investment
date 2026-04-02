@@ -298,52 +298,52 @@ elif st.session_state.user:
 
 elif st.session_state.page == "login":
     st.title("ACCESS PORTAL")
-    if st.button("Back"): st.session_state.page = "ad"; st.rerun()
+    if st.button("Back"): 
+        st.session_state.page = "ad"
+        st.rerun()
+    
     t1, t2 = st.tabs(["LOGIN", "REGISTER"])
+    
     with t1:
         u = st.text_input("FULL NAME").upper().strip()
         p = st.text_input("PIN", type="password")
         if st.button("LOGIN"):
             reg = load_registry()
-            if u in reg and str(reg[u]['pin']) == str(p): st.session_state.user = u; st.rerun()
-            else: st.error("Invalid Login")
-        with t2:
+            if u in reg and str(reg[u]['pin']) == str(p): 
+                st.session_state.user = u
+                st.rerun()
+            else: 
+                st.error("Invalid Login")
+                
+    with t2:
+        # Every line below 'with t2:' must be indented exactly like this
         fn = st.text_input("NAME MIDDLE LAST").upper().strip()
         p1 = st.text_input("6-DIGIT PIN", type="password", max_chars=6)
         p2 = st.text_input("CONFIRM PIN", type="password", max_chars=6)
-        rn = st.text_input("REFERRAL NAME (Must be an Active Investor)").upper().strip()
+        rn = st.text_input("REFERRAL NAME").upper().strip()
         
         if st.button("REGISTER"):
             reg = load_registry()
-            
-            # 1. Check if fields are filled and PINs match
+            # Check if fields are valid and Referral exists
             if not fn or len(p1) != 6 or p1 != p2:
-                st.error("Please fill all fields and ensure PINs match (6 digits).")
-            
-            # 2. Check if Referral exists
+                st.error("Check fields and PIN match (6 digits).")
             elif rn not in reg:
-                st.error(f"Referral Name '{rn}' not found. Please check spelling.")
-            
-            # 3. Check if Referral is an ACTIVE investor
+                st.error(f"Referral '{rn}' not found.")
             else:
                 referrer_data = reg[rn]
+                # New user cannot sign in without an active investor referral
                 if not referrer_data.get('inv') or len(referrer_data.get('inv')) == 0:
                     st.error(f"'{rn}' is not an active investor. Only active investors can refer.")
                 else:
-                    # Register the user
                     reg[fn] = {
-                        "pin": p1, 
-                        "wallet": 0.0, 
-                        "inv": [], 
-                        "full_name": fn, 
-                        "referral": rn, 
-                        "pending_actions": [], 
-                        "history": [], 
-                        "commissions": [],
-                        "has_deposited": False
+                        "pin": p1, "wallet": 0.0, "inv": [], 
+                        "full_name": fn, "referral": rn, 
+                        "pending_actions": [], "history": [], 
+                        "commissions": [], "has_deposited": False
                     }
                     update_user(fn, reg[fn])
-                    st.success("Registration Successful! You can now Login.")
+                    st.success("Registration Successful! Please Login.")
+                    
                     
                     
 # RESTORED ORIGINAL FRONT PAGE
