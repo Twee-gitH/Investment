@@ -5,7 +5,7 @@ import time
 from datetime import datetime, timedelta
 
 # ==========================================
-# DATA PERSISTENCE FUNCTIONS
+# BLOCK 1: THE CORE ENGINE (DATA & STATE)
 # ==========================================
 def load_registry():
     if os.path.exists("bpsm_registry.json"):
@@ -22,9 +22,7 @@ def update_user(name, data):
     with open("bpsm_registry.json", "w") as f: 
         json.dump(reg, f, indent=4, default=str)
 
-# ==========================================
-# INITIALIZE SESSION STATES
-# ==========================================
+# Initialize session states
 if 'page' not in st.session_state: st.session_state.page = "ad"
 if 'user' not in st.session_state: st.session_state.user = None
 if 'is_boss' not in st.session_state: st.session_state.is_boss = False
@@ -32,7 +30,7 @@ if 'admin_mode' not in st.session_state: st.session_state.admin_mode = False
 if 'sub_page' not in st.session_state: st.session_state.sub_page = "select"
 
 # ==========================================
-# GLOBAL UI STYLES
+# BLOCK 2: INTERFACE STYLES (UI)
 # ==========================================
 st.set_page_config(page_title="ISMEX Official", layout="wide")
 st.markdown("""
@@ -48,7 +46,7 @@ st.markdown("""
     """, unsafe_allow_html=True)
 
 # ==========================================
-# PAGE 1: THE ADVERTISEMENT
+# BLOCK 3: PAGE 1 - THE ADVERTISEMENT
 # ==========================================
 if st.session_state.page == "ad" and not st.session_state.user and not st.session_state.is_boss:
     st.markdown('<h1 style="text-align:center; font-size:45px; font-weight:900; background:linear-gradient(90deg, #ff007f, #ffaa00, #00ff88, #00eeff); -webkit-background-clip: text; color: transparent; margin-bottom:20px;">INTERNATIONAL STOCK MARKET EXCHANGE</h1>', unsafe_allow_html=True)
@@ -81,75 +79,86 @@ if st.session_state.page == "ad" and not st.session_state.user and not st.sessio
             st.rerun()
 
 # ==========================================
-# PAGE 2: ACCESS PORTAL (LOGIN/REG)
+# BLOCK 4: PAGE 2 - ACCESS PORTAL (LOGIN/REG)
 # ==========================================
 elif st.session_state.page == "login" and not st.session_state.user and not st.session_state.is_boss:
     st.markdown("<h1 style='text-align:center; color:#00eeff;'>ACCESS PORTAL</h1>", unsafe_allow_html=True)
+    
     col_nav1, col_nav2 = st.columns(2)
     with col_nav1:
-        if st.button("MEMBER LOG IN", use_container_width=True): st.session_state.sub_page = "login_form"
+        if st.button("MEMBER LOG IN", use_container_width=True):
+            st.session_state.sub_page = "login_form"
     with col_nav2:
-        if st.button("REGISTER AS MEMBER", use_container_width=True): st.session_state.sub_page = "reg_form"
+        if st.button("REGISTER AS MEMBER", use_container_width=True):
+            st.session_state.sub_page = "reg_form"
+
+    st.markdown("---")
 
     if st.session_state.sub_page == "login_form":
-        u_name_in = st.text_input("FULL USERNAME (ALL CAPS)").upper().strip()
-        u_pin = st.text_input("6-DIGIT PIN", type="password", max_chars=6)
-        if st.button("ENTER DASHBOARD"):
+        u_name_raw = st.text_input("FULL USERNAME (ALL CAPS)", key="l_u").upper().strip()
+        u_pin = st.text_input("6-DIGIT PIN", type="password", max_chars=6, key="l_p")
+        
+        if st.button("ENTER DASHBOARD", use_container_width=True):
             reg = load_registry()
-            db_key = u_name_in.replace(" ", "_")
-            user_data = reg.get(db_key) or reg.get(u_name_in)
+            name_v1 = u_name_raw
+            name_v2 = u_name_raw.replace(" ", "_")
+            user_data = reg.get(name_v1) or reg.get(name_v2)
+            
             if user_data and str(user_data.get('pin')) == str(u_pin):
-                st.session_state.user = db_key if db_key in reg else u_name_in
+                st.session_state.user = name_v1 if name_v1 in reg else name_v2
+                st.session_state.sub_page = "select"
                 st.rerun()
-            else: 
-                st.error("Invalid Credentials. Check Name or PIN.")
-
+            else:
+                st.error("❌ INVALID: Name or 6-Digit PIN does not match.")
+    
     elif st.session_state.sub_page == "reg_form":
         f = st.text_input("FIRST NAME").upper().strip()
         m = st.text_input("MIDDLE NAME").upper().strip()
         l = st.text_input("LAST NAME").upper().strip()
         p1 = st.text_input("6-DIGIT PIN", type="password", max_chars=6)
-        inv = st.text_input("INVITOR NAME OR 'DIRECT'").upper().strip()
+        inv = st.text_input("INVITOR OR 'DIRECT'").upper().strip()
+        
         if st.button("CREATE ACCOUNT") and f and l and len(p1) == 6:
             db_key = f"{f}_{m}_{l}"
             update_user(db_key, {"pin": p1, "wallet": 0.0, "inv": [], "full_name": f"{f} {m} {l}", "referred_by": inv})
-            st.success("Registered! Please Log In.")
+            st.success("Registration Successful! Please Log In.")
             st.session_state.sub_page = "login_form"
+            st.rerun()
 
 # ==========================================
-# PAGE 3: USER DASHBOARD
+# BLOCK 5: THE USER DASHBOARD
 # ==========================================
 elif st.session_state.user:
     reg = load_registry()
     data = reg.get(st.session_state.user, {})
     
-    # --- 1. MATURITY LOGIC (Update Wallet if 7 days passed) ---
+    # --- MATURITY LOGIC ---
     current_invs = data.get('inv', [])
     updated_invs = []
-    payout_made = False
+    payout_triggered = False
     for i in current_invs:
         end_time = datetime.fromisoformat(i['start_time']) + timedelta(days=7)
         if datetime.now() >= end_time:
             data['wallet'] += (i['amount'] * 1.20)
-            payout_made = True
-        else: 
+            payout_triggered = True
+        else:
             updated_invs.append(i)
     
-    if payout_made:
+    if payout_triggered:
         data['inv'] = updated_invs
         update_user(st.session_state.user, data)
         st.balloons()
 
-    # --- 2. HEADER & LOGOUT ---
+    # --- UI DISPLAY ---
     col1, col2 = st.columns([0.8, 0.2])
     with col1:
         st.markdown(f"### BPSM\nWelcome, {data.get('full_name')}")
     with col2:
         if st.button("LOGOUT"):
             st.session_state.user = None
+            st.session_state.page = "ad"
             st.rerun()
 
-    # --- 3. BALANCE DISPLAY ---
     st.markdown(f"""
         <div style="background:#1c1e26; padding:20px; border-radius:10px; text-align:center; border:1px solid #00ff88;">
             <p style="color:#8c8f99; font-size:14px;">WITHDRAWABLE BALANCE</p>
@@ -157,66 +166,51 @@ elif st.session_state.user:
         </div>
     """, unsafe_allow_html=True)
 
-    # --- 4. ACTIVE CYCLES ---
     st.markdown("<br>### ⌛ ACTIVE CYCLES", unsafe_allow_html=True)
     if not data.get('inv'):
-        st.info("No active cycles. Contact Admin to start an investment.")
+        st.info("No active cycles. Contact Admin to start.")
     
     for inv in data.get('inv', []):
         start = datetime.fromisoformat(inv['start_time'])
-        end = start + timedelta(days=7)
-        now = datetime.now()
-        
-        # Calculate precise ROI for the ticker
+        elapsed = (datetime.now() - start).total_seconds()
         total_sec = 7 * 24 * 3600
-        elapsed_sec = (now - start).total_seconds()
-        percent = min(elapsed_sec / total_sec, 1.0)
-        current_roi = (inv['amount'] * 0.20) * percent
+        percent = min(elapsed / total_sec, 1.0)
+        roi = (inv['amount'] * 0.20) * percent
         
-        # Time remaining
-        remaining = end - now
-        d = remaining.days
-        h, rem = divmod(remaining.seconds, 3600)
-        m, s = divmod(rem, 60)
+        rem = (start + timedelta(days=7)) - datetime.now()
+        d, h, m = rem.days, rem.seconds // 3600, (rem.seconds // 60) % 60
+        s = rem.seconds % 60
 
         st.markdown(f"""
             <div style="background:#16191f; border-left: 4px solid #00ff88; padding:15px; border-radius:5px; margin-bottom:10px; border: 1px solid #2d303a;">
-                <p style="margin:0; color:white; font-size:16px;">Capital: <b>₱{inv['amount']:,.1f}</b></p>
-                <p style="color:#00ff88; font-size:11px; margin:5px 0 0 0; letter-spacing:1px;">ACCUMULATED ROI:</p>
-                <h2 style="color:#00ff88; margin:0; font-family:monospace;">₱{current_roi:,.4f}</h2>
-                <p style="color:#ff4b4b; font-weight:bold; margin-top:10px; font-size:14px;">⌛ TIME LEFT: {d}D {h}H {m}M {s}S</p>
+                <p style="margin:0; color:white;">Capital: <b>₱{inv['amount']:,.1f}</b></p>
+                <h2 style="color:#00ff88; margin:0;">₱{roi:,.4f}</h2>
+                <p style="color:#ff4b4b; font-weight:bold; font-size:14px;">⌛ {d}D {h}H {m}M {s}S REMAINING</p>
             </div>
         """, unsafe_allow_html=True)
 
-    # --- 5. HEARTBEAT (MOVE TO BOTTOM TO FIX LOADING LOOP) ---
+    # --- THE HEARTBEAT ---
     time.sleep(1)
     st.rerun()
 
 # ==========================================
-# PAGE 4: ADMIN PANEL
+# BLOCK 6: ADMIN PANEL
 # ==========================================
 elif st.session_state.is_boss:
-    st.title("👑 ADMIN CONTROL")
+    st.title("👑 ADMIN PANEL")
     if st.button("EXIT ADMIN"):
         st.session_state.is_boss = False
         st.rerun()
 
     reg = load_registry()
-    user_list = list(reg.keys())
+    target = st.selectbox("Select User", list(reg.keys()))
+    amt = st.number_input("Capital Amount", min_value=100.0)
     
-    if not user_list:
-        st.warning("No users registered yet.")
-    else:
-        target = st.selectbox("Select User to Fund", options=user_list)
-        amt = st.number_input("Investment Amount (₱)", min_value=100.0, step=100.0)
-        
-        if st.button("🚀 ACTIVATE 7-DAY CYCLE"):
-            new_inv = {"amount": amt, "start_time": datetime.now().isoformat()}
-            reg[target]["inv"].append(new_inv)
-            update_user(target, reg[target])
-            st.success(f"Success! ₱{amt} cycle added to {target}")
+    if st.button("ACTIVATE CYCLE"):
+        reg[target]['inv'].append({"amount": amt, "start_time": datetime.now().isoformat()})
+        update_user(target, reg[target])
+        st.success("Cycle Started!")
 
     st.divider()
-    st.write("### Raw Database Management")
-    st.json(reg)
-    
+    st.write("Database:", reg)
+        
