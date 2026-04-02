@@ -115,17 +115,16 @@ elif st.session_state.user:
     data = reg.get(st.session_state.user, {})
     if 'wallet' not in data: data['wallet'] = 0.0
     
-    # REFERRAL LINK - MOVED TO SIDEBAR FOR MAXIMUM VISIBILITY
+    # FORCED REFERRAL LINK (Top of Dashboard)
     base_url = "https://investment-a6i6xonbqcuytzdgvkx9m6.streamlit.app/"
     my_ref_link = f"{base_url}?ref={st.session_state.user.replace(' ', '+')}"
 
-    with st.sidebar:
-        st.title("👤 MY ACCOUNT")
-        st.write(f"**{data.get('full_name')}**")
-        st.success("🔗 REFERRAL LINK:")
-        st.code(my_ref_link) # This will now always stay on the left side
-        if st.button("LOGOUT", use_container_width=True):
-            st.session_state.user = None; st.session_state.page = "ad"; st.rerun()
+    st.subheader(f"Welcome, {data.get('full_name')}!")
+    st.markdown("### 🔗 YOUR UNIQUE REFERRAL LINK")
+    st.code(my_ref_link, language="text") # Fixed block at the top
+    
+    if st.button("LOGOUT"):
+        st.session_state.user = None; st.session_state.page = "ad"; st.rerun()
 
     st.markdown(f"""
         <div style="background:#1c1e26; padding:20px; border-radius:10px; text-align:center; border:1px solid #00ff88;">
@@ -255,4 +254,4 @@ else:
     if col_b.button("🚀 PRESS HERE TO REGISTER / LOGIN", use_container_width=True): st.session_state.page = "login"; st.rerun()
     if st.session_state.admin_mode:
         if st.text_input("execution error", type="password") == "0102030405": st.session_state.is_boss = True; st.rerun()
-        
+            
