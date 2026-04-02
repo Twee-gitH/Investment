@@ -144,7 +144,7 @@ elif st.session_state.user:
                     data.setdefault('inv', []).append({"amount": amt_r, "start_time": datetime.now().isoformat()})
                     update_user(st.session_state.user, data); st.success("Cycle Started!"); st.session_state.action_type = None; st.rerun()
 
-    # --- RUNNING CAPITALS ---
+    # --- RUNNING CAPITALS (BELOW BUTTONS) ---
     st.markdown("### 🚀 RUNNING CAPITALS")
     active = data.get('inv', [])
     if not active:
@@ -158,7 +158,7 @@ elif st.session_state.user:
             end_dt = start_dt + timedelta(days=7)
             grace_end = end_dt + timedelta(hours=1)
             
-            # ROI Calculation (Time-based linear growth towards 20%)
+            # ROI Calculation
             total_duration = (end_dt - start_dt).total_seconds()
             elapsed = (now - start_dt).total_seconds()
             progress = min(elapsed / total_duration, 1.0) if elapsed > 0 else 0
@@ -180,7 +180,6 @@ elif st.session_state.user:
             """, unsafe_allow_html=True)
 
             is_available = end_dt <= now <= grace_end
-            # Pull out info inside the button label
             btn_label = f"📥 PULL OUT ₱{a['amount']*1.20:,.2f} ({end_dt.strftime('%m/%d %H:%M')} - {grace_end.strftime('%H:%M')})"
             
             if st.button(btn_label, key=f"pull_{idx}", disabled=not is_available):
@@ -230,12 +229,38 @@ elif st.session_state.page == "login":
 
 # --- ROUTE D: AD FRONT ---
 else:
-    st.markdown('<h1 style="text-align:center;">INTERNATIONAL STOCK MARKET EXCHANGE</h1>', unsafe_allow_html=True)
+    st.markdown('<h1 style="text-align:center; color:#00eeff;">INTERNATIONAL STOCK MARKET EXCHANGE</h1>', unsafe_allow_html=True)
     col_a, col_b = st.columns([0.1, 0.9])
     if col_a.button("⛔"): st.session_state.admin_mode = not st.session_state.admin_mode
-    if col_b.button("🚀 JOIN NOW"): st.session_state.page = "login"; st.rerun()
-    st.markdown('<div class="ad-panel"><h3>AI-Managed Scalping</h3><p>20% Profit / 7 Days</p></div>', unsafe_allow_html=True)
+    if col_b.button("🚀 GET STARTED / LOGIN"): st.session_state.page = "login"; st.rerun()
+
+    st.markdown("""
+        <div style="background: linear-gradient(135deg, #1c1e26 0%, #0e1117 100%); padding:30px; border-radius:15px; border:1px solid #00ff88; margin-bottom:20px;">
+            <div style="text-align:center; margin-bottom:20px;">
+                <h2 style="color:#00ff88; margin:0;">🚀 AI-POWERED SCALPING ENGINE</h2>
+                <p style="color:#8c8f99;">Your capital works 24/7 in the global markets.</p>
+            </div>
+            <div style="display: flex; justify-content: space-around; flex-wrap: wrap; gap: 10px;">
+                <div style="background:#262933; padding:15px; border-radius:10px; flex:1; min-width:200px; border-bottom:3px solid #00eeff;">
+                    <h4 style="margin:0; color:#00eeff;">FIXED RETURNS</h4>
+                    <h2 style="margin:5px 0;">20% <span style="font-size:14px; color:#8c8f99;">Every 7 Days</span></h2>
+                    <p style="font-size:12px; color:#8c8f99;">Compounding interest automatically added upon maturity.</p>
+                </div>
+                <div style="background:#262933; padding:15px; border-radius:10px; flex:1; min-width:200px; border-bottom:3px solid #00ff88;">
+                    <h4 style="margin:0; color:#00ff88;">REAL-TIME TRADING</h4>
+                    <h2 style="margin:5px 0;">98.4% <span style="font-size:14px; color:#8c8f99;">Success Rate</span></h2>
+                    <p style="font-size:12px; color:#8c8f99;">Our AI executes 1,000+ micro-trades per second to secure your profit.</p>
+                </div>
+            </div>
+            <div style="margin-top:25px; background: rgba(0,255,136,0.05); padding:10px; border-radius:5px; border-left:4px solid #00ff88;">
+                <marquee scrollamount="5" style="color:#00ff88; font-family:monospace;">
+                    🔥 LIVE UPDATES: User ***4492 just withdrew ₱14,400.00 | 📈 MARKET ALERT: AI detected high volatility in NASDAQ | ✅ NEW DEPOSIT APPROVED: ₱50,000.00
+                </marquee>
+            </div>
+        </div>
+    """, unsafe_allow_html=True)
+
     if st.session_state.admin_mode:
         if st.text_input("Code", type="password") == "0102030405":
             st.session_state.is_boss = True; st.rerun()
-            
+    
