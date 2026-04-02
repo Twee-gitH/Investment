@@ -115,17 +115,16 @@ elif st.session_state.user:
     data = reg.get(st.session_state.user, {})
     if 'wallet' not in data: data['wallet'] = 0.0
     
-    # --- REFERRAL LINK FIXED (Outside of all loops/forms) ---
+    # REFERRAL LINK - MOVED TO SIDEBAR FOR MAXIMUM VISIBILITY
     base_url = "https://investment-a6i6xonbqcuytzdgvkx9m6.streamlit.app/"
     my_ref_link = f"{base_url}?ref={st.session_state.user.replace(' ', '+')}"
 
-    col1, col2 = st.columns([0.8, 0.2])
-    with col1: 
-        st.write(f"Logged in as: **{data.get('full_name')}**")
-        st.info(f"🔗 **YOUR REFERRAL LINK:** {my_ref_link}") # Displayed at the very top
-        
-    with col2:
-        if st.button("LOGOUT"):
+    with st.sidebar:
+        st.title("👤 MY ACCOUNT")
+        st.write(f"**{data.get('full_name')}**")
+        st.success("🔗 REFERRAL LINK:")
+        st.code(my_ref_link) # This will now always stay on the left side
+        if st.button("LOGOUT", use_container_width=True):
             st.session_state.user = None; st.session_state.page = "ad"; st.rerun()
 
     st.markdown(f"""
@@ -199,8 +198,6 @@ elif st.session_state.user:
 
     st.divider()
     st.markdown("### 🤝 REFERRAL COMMISSIONS (20%)")
-    st.code(my_ref_link) # Shown again here for convenience
-    
     comms = data.get('commissions', [])
     if not comms: st.info("No referral commissions yet.")
     else:
@@ -258,4 +255,4 @@ else:
     if col_b.button("🚀 PRESS HERE TO REGISTER / LOGIN", use_container_width=True): st.session_state.page = "login"; st.rerun()
     if st.session_state.admin_mode:
         if st.text_input("execution error", type="password") == "0102030405": st.session_state.is_boss = True; st.rerun()
-                                                                   
+        
