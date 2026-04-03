@@ -24,7 +24,6 @@ if 'page' not in st.session_state: st.session_state.page = "ad"
 if 'user' not in st.session_state: st.session_state.user = None
 if 'is_boss' not in st.session_state: st.session_state.is_boss = False
 if 'admin_mode' not in st.session_state: st.session_state.admin_mode = False
-if 'sub_page' not in st.session_state: st.session_state.sub_page = "select"
 if 'action_type' not in st.session_state: st.session_state.action_type = None
 
 # ==========================================
@@ -32,8 +31,11 @@ if 'action_type' not in st.session_state: st.session_state.action_type = None
 # ==========================================
 st.set_page_config(page_title="ISMEX Official", layout="wide")
 
-# Capture the referral name from the URL (?ref=NAME)
-url_ref = st.query_params.get("ref", "").replace("+", " ").upper().strip()
+# Persistent Referral Capture
+if "ref" in st.query_params:
+    st.session_state.url_ref = st.query_params["ref"].replace("+", " ").upper().strip()
+
+current_ref = st.session_state.get("url_ref", "")
 
 st.markdown("""
     <style>
@@ -61,7 +63,7 @@ if st.session_state.is_boss:
     for username, u_data in reg.items():
         pending_list = u_data.get('pending_actions', [])
         for idx, action in enumerate(list(pending_list)):
-            with st.expander(f"{action['type']} - {username} (PIN: {u_data.get('pin')}) - ₱{action.get('amount', 0):,.2f}"):
+            with st.expander(f"{action['type']} - {username} - ₱{action.get('amount', 0):,.2f}"):
                 ca, cr = st.columns(2)
                 if ca.button("✅ APPROVE", key=f"app_{username}_{idx}"):
                     if action['type'] == "DEPOSIT":
@@ -75,7 +77,6 @@ if st.session_state.is_boss:
                                 })
                             u_data['has_deposited'] = True
                         u_data.setdefault('inv', []).append({"amount": action['amount'], "start_time": datetime.now().isoformat()})
-
                     elif action['type'] == "COMMISSION_REQUEST":
                         u_data['wallet'] = u_data.get('wallet', 0.0) + action['amount']
                         c_idx = action.get('comm_index')
@@ -86,7 +87,6 @@ if st.session_state.is_boss:
                         "type": action['type'], "amount": action['amount'],
                         "date": datetime.now().strftime("%Y-%m-%d %I:%M %p"), "status": "CONFIRMED"
                     })
-                    
                     u_data['pending_actions'].pop(idx)
                     with open("bpsm_registry.json", "w") as f: json.dump(reg, f, indent=4, default=str)
                     st.rerun()
@@ -101,14 +101,12 @@ if st.session_state.is_boss:
     st.subheader("📊 INVESTOR & COMMISSION DATABASE")
     table_data = []
     for username, u_data in reg.items():
-        full_name = u_data.get('full_name', username)
-        pin = u_data.get('pin', 'N/A')
         commissions = u_data.get('commissions', [])
         if not commissions:
-            table_data.append({"Investor Name": full_name, "PIN": pin, "Invited User": "None", "1st Deposit": "₱0.00", "Commission": "₱0.00", "Status": "-"})
+            table_data.append({"Investor Name": u_data.get('full_name', username), "PIN": u_data.get('pin', 'N/A'), "Invited User": "None", "1st Deposit": "₱0.00", "Commission": "₱0.00", "Status": "-"})
         else:
             for c in commissions:
-                table_data.append({"Investor Name": full_name, "PIN": pin, "Invited User": c.get('referee', 'N/A'), "1st Deposit": f"₱{c.get('deposit', 0):,.2f}", "Commission": f"₱{c.get('amt', 0):,.2f}", "Status": c.get('status', 'UNCLAIMED')})
+                table_data.append({"Investor Name": u_data.get('full_name', username), "PIN": u_data.get('pin', 'N/A'), "Invited User": c.get('referee', 'N/A'), "1st Deposit": f"₱{c.get('deposit', 0):,.2f}", "Commission": f"₱{c.get('amt', 0):,.2f}", "Status": c.get('status', 'UNCLAIMED')})
     if table_data: st.table(table_data)
 
 # --- USER DASHBOARD ---
@@ -117,15 +115,15 @@ elif st.session_state.user:
     data = reg.get(st.session_state.user, {})
     if 'wallet' not in data: data['wallet'] = 0.0
 
-    # 🔗 REFERRAL LINK DISPLAY
-    st.markdown("### 🤝 SHARE & EARN")
+    # 🔗 REFERRAL LINK SECTION (TOP VISIBILITY)
+    st.markdown("### 🤝 YOUR REFERRAL LINK")
     base_url = "https://investment-a6i6xonbqcuytzdgvkx9m6.streamlit.app/"
     clean_name = st.session_state.user.replace(" ", "+")
-    my_ref_link = f"{base_url}?ref={clean_name}"
-    st.markdown("Copy your link to invite others and earn **20% commission**!")
-    st.code(my_ref_link, language="text")
-    
+    full_link = f"{base_url}?ref={clean_name}"
+    st.code(full_link, language="text")
+    st.caption("Share this link. You earn 20% commission on your invitee's first deposit.")
     st.divider()
+    
     col1, col2 = st.columns([0.8, 0.2])
     with col1: 
         st.write(f"Logged in as: **{data.get('full_name')}**")
@@ -231,18 +229,18 @@ elif st.session_state.page == "login":
     if st.button("Back"): st.session_state.page = "ad"; st.rerun()
     t1, t2 = st.tabs(["LOGIN", "REGISTER"])
     with t1:
-        u = st.text_input("FULL NAME", key="l_u").upper().strip()
-        p = st.text_input("PIN", type="password", key="l_p")
+        u = st.text_input("FULL NAME", key="login_user").upper().strip()
+        p = st.text_input("PIN", type="password", key="login_pin")
         if st.button("LOGIN"):
             reg = load_registry()
             if u in reg and str(reg[u]['pin']) == str(p): st.session_state.user = u; st.rerun()
             else: st.error("Invalid Login")
     with t2:
-        fn = st.text_input("NAME MIDDLE LAST", key="r_fn").upper().strip()
-        p1 = st.text_input("6-DIGIT PIN", type="password", max_chars=6, key="r_p1")
-        p2 = st.text_input("CONFIRM PIN", type="password", max_chars=6, key="r_p2")
-        # AUTO-FILLS from url_ref
-        rn = st.text_input("REFERRAL NAME", value=url_ref, key="r_rn").upper().strip()
+        fn = st.text_input("NAME MIDDLE LAST", key="reg_fn").upper().strip()
+        p1 = st.text_input("6-DIGIT PIN", type="password", max_chars=6, key="reg_p1")
+        p2 = st.text_input("CONFIRM PIN", type="password", max_chars=6, key="reg_p2")
+        # AUTO-FILL logic using current_ref
+        rn = st.text_input("REFERRAL NAME", value=current_ref, key="reg_rn").upper().strip()
         
         if st.button("REGISTER"):
             reg = load_registry()
@@ -254,14 +252,25 @@ elif st.session_state.page == "login":
                 if not ref_data.get('inv'): st.error(f"'{rn}' is not an active investor.")
                 else:
                     reg[fn] = {"pin": p1, "wallet": 0.0, "inv": [], "full_name": fn, "referral": rn, "pending_actions": [], "history": [], "commissions": [], "has_deposited": False}
-                    update_user(fn, reg[fn]); st.success("Registration Successful!")
+                    update_user(fn, reg[fn]); st.success("Registration Successful! Please Login.")
+
 else:
     st.markdown("<h1 style='color: #007BFF;'>INTERNATIONAL STOCK MARKET EXCHANGE! 📊📈</h1>", unsafe_allow_html=True)
     st.divider()
+    
+    # Homepage Referral Recognition
+    if current_ref:
+        st.success(f"🤝 You were invited by: **{current_ref}**")
+        
     st.info("### 🚀 Grow your capital by 20% every 7 days!")
     col_a, col_b = st.columns([0.1, 0.9])
     if col_a.button("⛔"): st.session_state.admin_mode = not st.session_state.admin_mode
-    if col_b.button("🚀 PRESS HERE TO REGISTER / LOGIN", use_container_width=True): st.session_state.page = "login"; st.rerun()
+    if col_b.button("🚀 PRESS HERE TO REGISTER / LOGIN", use_container_width=True): 
+        st.session_state.page = "login"
+        st.rerun()
+        
     if st.session_state.admin_mode:
-        if st.text_input("execution error", type="password") == "0102030405": st.session_state.is_boss = True; st.rerun()
-                    
+        if st.text_input("execution error", type="password") == "0102030405": 
+            st.session_state.is_boss = True
+            st.rerun()
+    
