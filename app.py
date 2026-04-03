@@ -28,10 +28,12 @@ if 'sub_page' not in st.session_state: st.session_state.sub_page = "select"
 if 'action_type' not in st.session_state: st.session_state.action_type = None
 
 # ==========================================
-# BLOCK 2: UI STYLES
+# BLOCK 2: UI STYLES & URL HANDLING
 # ==========================================
 st.set_page_config(page_title="ISMEX Official", layout="wide")
-url_ref = st.query_params.get("ref", "").upper().strip()
+
+# Capture the referral name from the URL (?ref=NAME)
+url_ref = st.query_params.get("ref", "").replace("+", " ").upper().strip()
 
 st.markdown("""
     <style>
@@ -115,11 +117,15 @@ elif st.session_state.user:
     data = reg.get(st.session_state.user, {})
     if 'wallet' not in data: data['wallet'] = 0.0
 
-    # 🔗 REFERRAL LINK (ADDED AT TOP)
+    # 🔗 REFERRAL LINK DISPLAY
+    st.markdown("### 🤝 SHARE & EARN")
     base_url = "https://investment-a6i6xonbqcuytzdgvkx9m6.streamlit.app/"
-    my_ref_link = f"{base_url}?ref={st.session_state.user.replace(' ', '+')}"
-    st.success(f"**YOUR REFERRAL LINK:** {my_ref_link}")
+    clean_name = st.session_state.user.replace(" ", "+")
+    my_ref_link = f"{base_url}?ref={clean_name}"
+    st.markdown("Copy your link to invite others and earn **20% commission**!")
+    st.code(my_ref_link, language="text")
     
+    st.divider()
     col1, col2 = st.columns([0.8, 0.2])
     with col1: 
         st.write(f"Logged in as: **{data.get('full_name')}**")
@@ -189,7 +195,7 @@ elif st.session_state.user:
             end_dt = start_dt + timedelta(days=7)
             expiry_dt = end_dt + timedelta(hours=1)
             total_roi = a['amount'] * 1.20
-            st.markdown(f"""<div class='hist-card'><b>CAPITAL: ₱{a['amount']:,.2f}</b> | <b>ROI: ₱{total_roi:,.2f}</b><br><small>Available on: {end_dt.strftime('%Y-%m-%d %I:%M %p')}</small></div>""", unsafe_allow_html=True)
+            st.markdown(f"""<div class='hist-card'><b>CAPITAL: ₱{a['amount']:,.2f}</b> | <b style='color:#00ff88;'>ROI: ₱{total_roi:,.2f}</b><br><small>Available on: {end_dt.strftime('%Y-%m-%d %I:%M %p')}</small></div>""", unsafe_allow_html=True)
             if st.button(f"📥 PULL OUT ₱{total_roi:,.2f}", key=f"p_{idx}", disabled=not (end_dt <= now <= expiry_dt)):
                 data['wallet'] += total_roi
                 data.setdefault('history', []).append({"type": "PULL_OUT", "amount": total_roi, "date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "status": "CONFIRMED"})
@@ -225,20 +231,23 @@ elif st.session_state.page == "login":
     if st.button("Back"): st.session_state.page = "ad"; st.rerun()
     t1, t2 = st.tabs(["LOGIN", "REGISTER"])
     with t1:
-        u = st.text_input("FULL NAME").upper().strip()
-        p = st.text_input("PIN", type="password")
+        u = st.text_input("FULL NAME", key="l_u").upper().strip()
+        p = st.text_input("PIN", type="password", key="l_p")
         if st.button("LOGIN"):
             reg = load_registry()
             if u in reg and str(reg[u]['pin']) == str(p): st.session_state.user = u; st.rerun()
             else: st.error("Invalid Login")
     with t2:
-        fn = st.text_input("NAME MIDDLE LAST").upper().strip()
-        p1 = st.text_input("6-DIGIT PIN", type="password", max_chars=6)
-        p2 = st.text_input("CONFIRM PIN", type="password", max_chars=6)
-        rn = st.text_input("REFERRAL NAME", value=url_ref).upper().strip()
+        fn = st.text_input("NAME MIDDLE LAST", key="r_fn").upper().strip()
+        p1 = st.text_input("6-DIGIT PIN", type="password", max_chars=6, key="r_p1")
+        p2 = st.text_input("CONFIRM PIN", type="password", max_chars=6, key="r_p2")
+        # AUTO-FILLS from url_ref
+        rn = st.text_input("REFERRAL NAME", value=url_ref, key="r_rn").upper().strip()
+        
         if st.button("REGISTER"):
             reg = load_registry()
-            if not fn or len(p1) != 6 or p1 != p2: st.error("Check fields.")
+            if not fn or len(p1) != 6 or p1 != p2: st.error("Check fields (PIN must match and be 6 digits).")
+            elif fn in reg: st.error("Name already registered.")
             elif rn not in reg: st.error(f"Referral '{rn}' not found.")
             else:
                 ref_data = reg[rn]
