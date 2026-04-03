@@ -154,15 +154,20 @@ elif st.session_state.user:
         </div>
     """, unsafe_allow_html=True)
 
-    # DASHBOARD REFERRAL LINK (RE-FIXED)
-    formatted_name = st.session_state.user.replace(" ", "+")
-    ref_link = f"https://investment-a6i6xonbqcuytzdgvkx9m6.streamlit.app/?ref={formatted_name}"
-    st.markdown(f"""
-        <div class="ref-link-box">
-            <span style="color:#8c8f99; font-weight:bold;">🤝 SHARE & EARN 20%</span><br>
-            <code style="color:#00ff88; font-size:14px;">{ref_link}</code>
-        </div>
-    """, unsafe_allow_html=True)
+    # --- DASHBOARD REFERRAL LINK ---
+# This uses your new clean GitHub Pages URL
+clean_base_url = "https://twee-gith.github.io/ISMEX-PHILIPPINES/" 
+
+formatted_name = st.session_state.user.replace(" ", "+")
+ref_link = f"{clean_base_url}?ref={formatted_name}"
+
+st.markdown(f"""
+    <div class="ref-link-box">
+        <span style="color:#8c8f99; font-weight:bold;">🤝 SHARE YOUR LINK</span><br>
+        <code style="color:#00ff88; font-size:14px;">{ref_link}</code>
+    </div>
+""", unsafe_allow_html=True)
+
 
     # Actions
     if st.button("📥 DEPOSIT"): st.session_state.action_type = "DEP"
