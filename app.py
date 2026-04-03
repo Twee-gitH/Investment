@@ -134,8 +134,51 @@ elif st.session_state.user:
                     update_user(st.session_state.user, data); st.session_state.action_type = None; st.rerun()
                 else: st.error("Please upload your receipt.")
 
-        # WITHDRAW FORM
-    if st.session_state.action_type == "WITH":
+    
+        # REINVEST FORM
+    if st.session_state.action_type == "REIN":
+        with st.form("r"):
+            st.markdown("### ♻️ REINVEST CAPITAL")
+            current_wallet = float(data.get('wallet', 0.0))
+            
+            # Allow reinvesting any amount up to the current balance
+            amt_r = st.number_input(
+                "Amount to Reinvest", 
+                min_value=0.0, 
+                max_value=max(0.0, current_wallet),
+                step=100.0
+            )
+            
+            submit_r = st.form_submit_button("CONFIRM REINVESTMENT")
+            
+            if submit_r:
+                if amt_r <= 0:
+                    st.error("Please enter an amount greater than 0.")
+                elif amt_r > current_wallet:
+                    st.error("Insufficient balance.")
+                else:
+                    # 1. Deduct from wallet
+                    data['wallet'] -= amt_r
+                    
+                    # 2. Create new Running Capital (starts immediately)
+                    data.setdefault('inv', []).append({
+                        "amount": amt_r, 
+                        "start_time": datetime.now().isoformat()
+                    })
+                    
+                    # 3. Log to Transaction History
+                    data.setdefault('history', []).append({
+                        "type": "REINVEST", 
+                        "amount": amt_r, 
+                        "date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"), 
+                        "status": "CONFIRMED"
+                    })
+                    
+                    update_user(st.session_state.user, data)
+                    st.session_state.action_type = None
+                    st.success(f"Successfully reinvested ₱{amt_r:,.2f}!")
+                    st.rerun()
+                    "WITH":
         with st.form("w"):
             st.markdown("### 💸 WITHDRAWAL REQUEST")
             
