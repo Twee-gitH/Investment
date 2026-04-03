@@ -2,32 +2,44 @@
 <html>
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ISMEX OFFICIAL</title>
     <style>
-        body, html { margin: 0; padding: 0; height: 100%; overflow: hidden; background: #0e1117; }
+        body, html { margin: 0; padding: 0; height: 100%; overflow: hidden; background: #0e1117; color: white; font-family: sans-serif; }
         .mask-container {
             position: absolute;
-            top: -55px; /* Hides the top face/icon */
+            top: -55px; /* Hides top profile icon */
             left: 0;
             width: 100%;
-            height: calc(100% + 105px); /* Hides the bottom 'Manage app' button */
+            height: calc(100% + 105px); /* Hides bottom 'Manage app' button */
         }
         iframe { width: 100%; height: 100%; border: none; }
+        #loading { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); }
     </style>
 </head>
 <body>
+    <div id="loading">Connecting to Secure Server...</div>
     <div class="mask-container">
-        <iframe id="main-app" src=""></iframe>
+        <iframe id="main-app" src="" allow="clipboard-read; clipboard-write"></iframe>
     </div>
 
     <script>
         const urlParams = new URLSearchParams(window.location.search);
         const ref = urlParams.get('ref');
         
-        // ADD YOUR REAL STREAMLIT URL HERE
+        // Use the exact URL from your browser bar when you open Streamlit
         let targetURL = "https://change.streamlit.app/?embed=true&embed_options=dark_theme";
         
-        if (ref) { targetURL += "&ref=" + encodeURIComponent(ref); }
-        document.getElementById('main-app').src = targetURL;
+        if (ref) { 
+            targetURL += "&ref=" + encodeURIComponent(ref); 
+        }
+        
+        const frame = document.getElementById('main-app');
+        frame.src = targetURL;
+        
+        // Hide loading message once the app starts to load
+        frame.onload = function() {
+            document.getElementById('loading').style.display = 'none';
+        };
     </script>
 </body>
 </html>
