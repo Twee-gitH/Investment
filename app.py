@@ -140,27 +140,40 @@ if st.session_state.is_boss:
 # USER DASHBOARD SECTION
 # ==========================================
 elif st.session_state.user:
-    # 1. LOGOUT AT THE VERY TOP
-    if st.button("LOGOUT"):
-        st.session_state.user = None
-        st.rerun()
+elif st.session_state.user:
+    # 1. IMMEDIATE DATA LOAD
+    reg = load_registry()
+    data = reg.get(st.session_state.user, {})
+    user_display = str(st.session_state.user).replace(" ", "+").upper()
+    
+    # 2. THE LINK (Using your confirmed GitHub URL)
+    my_ref = f"https://twee-gith.github.io/ISMEX-PHILIPPINES/?ref={user_display}"
 
-    # 2. FORCE THE REFERRAL LINK (Simple Text)
-    # Using your GitHub Pages URL from your screenshot
-    user_id_clean = str(st.session_state.user).replace(" ", "+").upper()
-    final_link = f"https://twee-gith.github.io/ISMEX-PHILIPPINES/?ref={user_id_clean}"
+    # 3. BACKUP: PUT IT IN THE SIDEBAR (Impossible to miss)
+    with st.sidebar:
+        st.title("Settings")
+        st.success("YOUR REFERRAL LINK:")
+        st.code(my_ref, language="text")
+        if st.button("LOGOUT"):
+            st.session_state.user = None
+            st.rerun()
 
-    st.warning("⚠️ YOUR INVITE LINK:")
-    st.code(final_link, language="text")
-    st.caption("Copy this and share with your recruits.")
+    # 4. MAIN DASHBOARD DISPLAY
+    st.write(f"Logged in as: **{user_display}**")
+    
+    # This is a 'Header' version of the link for the main screen
+    st.info(f"🔗 INVITE LINK: {my_ref}")
 
-    # 3. BALANCE & THE REST
+    # 5. YOUR BALANCE BOX
     st.markdown(f"""
-        <div style="border: 2px solid #00ff88; padding: 20px; border-radius: 15px; text-align: center; margin-top: 10px;">
-            <p style="color:#8c8f99; font-size:12px;">WITHDRAWABLE BALANCE</p>
-            <h1 style="color:#00ff88; font-size:45px; margin:0;">₱{data.get('wallet', 0.0):,.2f}</h1>
+        <div style="background:#1c1e26; border: 2px solid #00ff88; padding: 20px; border-radius: 15px; text-align: center;">
+            <p style="color:#8c8f99; font-size:12px; margin-bottom:5px;">WITHDRAWABLE BALANCE</p>
+            <h1 style="color:#00ff88; font-size:40px; margin:0;">₱{data.get('wallet', 0.0):,.2f}</h1>
         </div>
     """, unsafe_allow_html=True)
+    
+    # ... Rest of your Running Capitals code ...
+    
     
     
 
@@ -276,7 +289,7 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 # THE COPY BUTTON
-if st.button("📋 CLICK TO COPY LINK"):
+if st.t("📋 CLICK TO COPY LINK"):
     # This dummy button provides a clear visual for users to tap
     st.write(f"**Link ready!** Long-press the green text above to copy.")
     st.toast("Link displayed above!")
