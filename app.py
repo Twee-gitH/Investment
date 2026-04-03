@@ -143,28 +143,29 @@ elif st.session_state.user:
     reg = load_registry()
     data = reg.get(st.session_state.user, {})
     
-    # --- AUTOMATIC REFERRAL GENERATOR ---
-    # This uses your confirmed GitHub link
-    clean_url = "https://twee-gith.github.io/ISMEX-PHILIPPINES/"
-    user_name = str(st.session_state.user).replace(" ", "+").upper()
-    full_ref_link = f"{clean_url}?ref={user_name}"
+    # FORCE THE LINK TO THE TOP
+    user_id = str(st.session_state.user).replace(" ", "+").upper()
+    my_link = f"https://twee-gith.github.io/ISMEX-PHILIPPINES/?ref={user_id}"
 
-    # --- TOP NAV & LOGOUT ---
-    c1, c2 = st.columns([3, 1])
-    with c1: st.subheader(f"👤 {user_name}")
-    with c2: 
-        if st.button("LOGOUT"):
-            st.session_state.user = None
-            st.rerun()
+    st.write(f"Logged in as: **{user_id}**")
+    
+    # THIS BLOCK MUST SHOW UP NOW
+    st.error("📢 YOUR REFERRAL LINK IS BELOW:")
+    st.code(my_link, language="text")
+    st.info("Copy the link above to invite friends.")
+    
+    if st.button("LOGOUT"):
+        st.session_state.user = None
+        st.rerun()
 
-    # --- THE MISSING REFERRAL BOX (STOPS THE EDITING!) ---
+    # THE REST OF YOUR DASHBOARD
     st.markdown(f"""
-        <div style="background: #111; padding: 15px; border-radius: 12px; border: 2px dashed #00ff88; margin-bottom: 20px;">
-            <p style="color: #8c8f99; font-size: 11px; font-weight: bold; margin-bottom: 5px;">YOUR RECRUITMENT LINK:</p>
-            <code style="color: #00ff88; font-size: 14px; word-break: break-all;">{full_ref_link}</code>
-            <p style="color: #555; font-size: 10px; margin-top: 5px;">Hold text to copy and share</p>
+        <div style="border: 1px solid #00ff88; padding: 20px; border-radius: 15px; text-align: center;">
+            <p style="color:#8c8f99; font-size:12px;">WITHDRAWABLE BALANCE</p>
+            <h1 style="color:#00ff88; font-size:45px; margin:0;">₱{data.get('wallet', 0.0):,.2f}</h1>
         </div>
     """, unsafe_allow_html=True)
+    
 
     # --- WITHDRAWABLE BALANCE ---
     st.markdown(f"""
